@@ -1,12 +1,18 @@
 export class Game {
     constructor() {
-        this.board = Array(9).fill(null);
+        this.size = 3; // 3x3x3 grid
+        this.board = Array(this.size ** 3).fill(null);
         this.currentPlayer = 'X';
         this.winner = null;
         this.gameOver = false;
     }
 
-    makeMove(index) {
+    getIndex(x, y, z) {
+        return z * this.size * this.size + y * this.size + x;
+    }
+
+    makeMove(x, y, z) {
+        const index = this.getIndex(x, y, z);
         if (this.board[index] || this.gameOver) {
             return false;
         }
@@ -25,17 +31,58 @@ export class Game {
     }
 
     checkWinner() {
-        const winPatterns = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-            [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
-            [0, 4, 8], [2, 4, 6] // diagonals
+        // Check all possible winning lines in 3D
+        const directions = [
+            // Along x-axis (rows in each layer)
+            { dx: 1, dy: 0, dz: 0 },
+            // Along y-axis (columns in each layer)
+            { dx: 0, dy: 1, dz: 0 },
+            // Along z-axis (pillars)
+            { dx: 0, dy: 0, dz: 1 },
+            // Diagonals in xy planes
+            { dx: 1, dy: 1, dz: 0 },
+            { dx: 1, dy: -1, dz: 0 },
+            // Diagonals in xz planes
+            { dx: 1, dy: 0, dz: 1 },
+            { dx: 1, dy: 0, dz: -1 },
+            // Diagonals in yz planes
+            { dx: 0, dy: 1, dz: 1 },
+            { dx: 0, dy: 1, dz: -1 },
+            // Space diagonals
+            { dx: 1, dy: 1, dz: 1 },
+            { dx: 1, dy: 1, dz: -1 },
+            { dx: 1, dy: -1, dz: 1 },
+            { dx: -1, dy: 1, dz: 1 }
         ];
 
-        for (const pattern of winPatterns) {
-            const [a, b, c] = pattern;
-            if (this.board[a] && this.board[a] === this.board[b] && this.board[a] === this.board[c]) {
-                this.winner = this.board[a];
-                return;
+        for (let startX = 0; startX < this.size; startX++) {
+            for (let startY = 0; startY < this.size; startY++) {
+                for (let startZ = 0; startZ < this.size; startZ++) {
+                    for (const dir of directions) {
+                        let count = 0;
+                        let player = null;
+                        for (let i = 0; i < this.size; i++) {
+                            const x = startX + dir.dx * i;
+                            const y = startY + dir.dy * i;
+                            const z = startZ + dir.dz * i;
+                            if (x >= 0 && x < this.size && y >= 0 && y < this.size && z >= 0 && z < this.size) {
+                                const index = this.getIndex(x, y, z);
+                                if (this.board[index] && (player === null || this.board[index] === player)) {
+                                    player = this.board[index];
+                                    count++;
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        if (count === this.size) {
+                            this.winner = player;
+                            return;
+                        }
+                    }
+                }
             }
         }
 
@@ -46,7 +93,7 @@ export class Game {
     }
 
     reset() {
-        this.board = Array(9).fill(null);
+        this.board = Array(this.size ** 3).fill(null);
         this.currentPlayer = 'X';
         this.winner = null;
         this.gameOver = false;
@@ -66,5 +113,9 @@ export class Game {
 
     isGameOver() {
         return this.gameOver;
+    }
+
+    getSize() {
+        return this.size;
     }
 }

@@ -3,8 +3,8 @@ import { UI } from './ui.js';
 
 const game = new Game();
 
-const handleCellClick = (index) => {
-    if (game.makeMove(index)) {
+const handleCellClick = (x, y, z) => {
+    if (game.makeMove(x, y, z)) {
         UI.renderBoard(game.getBoard());
         UI.updateStatus(game);
         if (game.getWinner() && game.getWinner() !== 'Draw') {
