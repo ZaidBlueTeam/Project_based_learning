@@ -6,10 +6,15 @@ body {
     height: 100vh;
     margin: 0;
     background-color: lightblue;
+
+    background-image: url('background.jpg'); /* Add your image file here */
+    background-size: cover; /* Scales image to cover the whole background */
+    background-position: center; /* Centers the image */
+    background-repeat: no-repeat; /* Prevents tiling */
 }
 .container {
     text-align: center;
-    background: white;
+    background: rgba(255, 255, 255, 0.8); /* Semi-transparent white to show background image */
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
