@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silly Quiz Challenge</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="title-screen" class="container">
+        <h1>Sonic.exe TD Quiz Challenge</h1>
+        <p>Answer questions before time runs out! Lose all lives and it's game over.</p>
+        <button id="start-btn">Start Quiz</button>
+    </div>
+    <div id="game-container" style="display: none;">
+        <div class="container">
+            <h1>Sonic.exe TD Quiz Challenge</h1>
+            <div id="lives">Lives: ❤️❤️❤️</div>
+            <div id="score">Score: 0</div>
+            <div id="timer">Time: 10</div>
+            <div id="question"></div>
+            <div class="options">
+                <button id="optionA"></button>
+                <button id="optionB"></button>
+                <button id="optionC"></button>
+                <button id="optionD"></button>
+            </div>
+            <div id="result"></div>
+            <div id="fact-box" style="display: none;">
+                <p id="fact-text"></p>
+                <button id="continue-btn">Continue</button>
+            </div>
+            <button id="next-btn" style="display: none;">Next Question</button>
+            <button id="restart-btn" style="display: none;">Restart Game</button>
+        </div>
+    </div>
+    <!-- Audio elements for background and win music -->
+    <audio id="title-music">
+        <source src="title.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="background-music" loop>
+        <source src="background.ogg" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="good-win-music">
+        <source src="good_win.wav" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="normal-win-music">
+        <source src="win.wav" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="solo-win-music">
+        <source src="solo_win.wav" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="lose-music">
+        <source src="lose.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <audio id="timer-over-music">
+        <source src="timer_over.ogg" type="audio/ogg">
+        Your browser does not support the audio element.
+    </audio>
+    <script src="script.js"></script>
+</body>
+</html>
