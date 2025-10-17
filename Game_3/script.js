@@ -4,35 +4,35 @@ const questions = [
         question: "What happened on 5/5/2025?",
         options: ["A: The Death of Sonic.exe TD", "B: Nothing. You mother fu-", "C: Your mom", "D: Depression"],
         correct: "A",
-        time: 15,
+        time: 30,
         fact: "Sonic.exe TD was a popular indie game on Roblox that sadly shut down on May 5, 2025, due to copyright issues."
     },
     {
         question: "What happened after 5/5/2025?",
         options: ["A: Nothing again", "B: People started to make TD Reborn", "C: They moved on", "D: They cried all day"],
         correct: "B",
-        time: 15,
+        time: 30,
         fact: "Fans created TD Reborn as a fan-made continuation to keep the Sonic.exe TD legacy alive!"
     },
     {
         question: "What happened after the release of TD Reborn on June?",
         options: ["A: It was the perfect release", "B: It had some bugs", "C: It was a disaster", "D: No one cared"],
         correct: "C",
-        time: 15,
+        time: 30,
         fact: "The initial release had major bugs, leading to frustration and a lot of questions."
     },
     {
         question: "What did the developers do after the disasterous release?",
         options: ["A: They fixed the bugs right away", "B: They closed the game", "C: They took a break", "D: They ignored the players"],
         correct: "B",
-        time: 15,
+        time: 30,
         fact: "The developers decided to close the game to avoid further issues, but the game promised bug fixes in the future."
     },
     {
         question: "When did the less-buggy version of TD Reborn release?",
         options: ["A: July", "B: August", "C: Late June", "D: September"],
         correct: "A",
-        time: 15,
+        time: 30,
         fact: "A more stable version was released in July, making the game enjoyable for fans again."
     }
 ];
@@ -75,7 +75,7 @@ titleMusic.play(); // Play title music on load
 startBtn.addEventListener('click', () => {
     titleScreen.style.display = 'none';
     gameContainer.style.display = 'block';
-    document.body.style.backgroundImage = "url('background.jpg')"; // Switch to quiz background
+    document.body.style.backgroundImage = "url('background.png')"; // Switch to quiz background
     titleMusic.pause(); // Pause title music
     backgroundMusic.play(); // Play background music
     loadQuestion();
@@ -198,6 +198,10 @@ optionA.addEventListener('click', () => checkAnswer('A'));
 optionB.addEventListener('click', () => checkAnswer('B'));
 optionC.addEventListener('click', () => checkAnswer('C'));
 optionD.addEventListener('click', () => checkAnswer('D'));
+nextBtn.addEventListener('click', () => {
+    currentQuestion++;
+    loadQuestion();
+});
 continueBtn.addEventListener('click', () => {
     factBox.style.display = 'none';
     nextBtn.style.display = 'block';
@@ -212,8 +216,10 @@ restartBtn.addEventListener('click', () => {
     restartBtn.style.display = 'none';
     gameContainer.style.display = 'none';
     titleScreen.style.display = 'block';
-    document.body.style.backgroundImage = "url('title_bg.jpg')"; // Switch back to title background
-    titleMusic.play(); // Play title music again
+    document.body.style.backgroundImage = "url('title.jpg')"; // Switch back to title background
+    titleMusic.pause(); // Pause title music first
+    titleMusic.currentTime = 0; // Reset to start
+    titleMusic.play(); // Play title music again from beginning
     goodWinMusic.pause(); // Pause all win music if playing
     goodWinMusic.currentTime = 0;
     normalWinMusic.pause();
