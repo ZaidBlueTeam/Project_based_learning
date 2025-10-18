@@ -68,7 +68,7 @@ let currentQuestion = 0;
 let lives = 3;
 let score = 0;
 let timer;
-let timeLeft = 10;
+let timeLeft = 30;
 
 // Start game
 titleMusic.play(); // Play title music on load
