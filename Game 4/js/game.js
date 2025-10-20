@@ -62,7 +62,7 @@ function drawZone() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'white';
     ctx.font = '48px Arial';
-    ctx.fillText('Green Hill Zone', canvas.width / 2 - 150, canvas.height / 2);
+    ctx.fillText('Test Zone', canvas.width / 2 - 150, canvas.height / 2);
 }
 
 // Function to draw the background
