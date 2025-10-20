@@ -1,14 +1,28 @@
 body {
     font-family: Arial, sans-serif;
     text-align: center;
-    background-color: #f0f0f0;
-}
+    background: linear-gradient(45deg, #000000, #333333, #666666); /* Dark gradient for old PC feel */
+    background-size: 400% 400%; /* Makes it larger for animation */
+    animation: moveBackground 10s ease infinite; /* Slow animation for 3D-like movement */
+    margin: 0;
+    padding: 20px;
+    color: white; /* White text for contrast */
+
+
+    @keyframes moveBackground {
+        0% { background-position: 0% 50% }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+}    
 
 h1 {
-    color: #333;
+    color: #FFD700; /* Gold color for Sonic theme */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Subtle shadow for depth */
 }
 
 #gameCanvas {
-    border: 2px solid #333;
-    background-color: #87CEEB; /* Sky blue background */
+    border: 2px solid #FFD700; /* Gold border to match theme */
+    background-color: #87CEEB; /* Sky blue inside canvas */
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); /* Glow effect for 3D feel */
 }
