@@ -1,3 +1,32 @@
+const CONFIG = {
+    player: {
+        width: 75,
+        height: 75,
+
+        startX: 100,
+        startY: 500,
+
+        acceleration: 0.2,
+        maxSpeed: 8,
+        friction: 0.95,
+
+        gravity: 0.4,
+        jumpStrength: -15,
+
+        spindashSpeed: 15,
+        spindashChargeFrames: 30
+    },
+
+    ground: {
+        height: 50,
+        color: "blue"
+    },
+
+    game: {
+        zoneDisplayTimer: 2005
+    }
+};
+
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -11,33 +40,31 @@ let gameState = 'title';
 
 // Player object (added acceleration and max speed)
 let player = {
-    x: 100,
-    y: 500,
-    width: 75,
-    height: 75,
+    x: CONFIG.player.startX,
+    y: CONFIG.player.startY,
+    width: CONFIG.player.width,
+    height: CONFIG.player.height,
     velocityX: 0,
     velocityY: 0,
-    acceleration: 0.2,  // Nerfed acceleration (slower)
-    maxSpeed: 8,
-    gravity: 0.4,
-    jumpStrength: -15,
-    onGround: true,
-    facing: 1,  // 1 for right, -1 for left (remembers direction)
-    // Animation properties
-    animation: 'idle',  // Current animation: 'idle', 'walk', 'run', 'jump', 'crouch', 'spindash'
-    spindashCharge: 0,  // Charge for spindash
-    spindashSpeed: 15,  // Speed when spindashing
-    spindashMode: false,  // If in spindash mode
-    spindashTimer: 0  // Timer for spindash animation
+    acceleration: CONFIG.player.acceleration,
+    maxSpeed: CONFIG.player.maxSpeed,
+    gravity: CONFIG.player.gravity,
+    jumpStrength: CONFIG.player.jumpStrength,
+    onGround: false,
+    facing: 1,
+    animation: 'idle',
+    spindashMode: false,
+    spindashCharge: 0,
+    spindashTimer: 0
 };
 
 // Ground object
 let ground = {
     x: 0,
-    y: canvas.height - 50,
+    y: canvas.height - CONFIG.ground.height,
     width: canvas.width,
-    height: 50,
-    color: 'green'
+    height: CONFIG.ground.height,
+    color: CONFIG.ground.color
 };
 
 // Key states
@@ -48,7 +75,7 @@ document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
     if (gameState === 'title' && e.key === ' ') {
         gameState = 'zone';
-        setTimeout(() => gameState = 'game', 2000);  // Show zone for 2 seconds
+        setTimeout(() => gameState = 'game', CONFIG.game.zoneDisplayTimer);  // Show zone for 2 seconds
     }
 });
 document.addEventListener('keyup', (e) => keys[e.key] = false);
@@ -117,7 +144,7 @@ function updatePlayer() {
         player.facing = 1;  // Face right
     } else {
         // No key: slide with friction
-        player.velocityX *= 0.95;  // Little slide, slows down gradually
+        player.velocityX *= CONFIG.player.friction; // Little slide, slows down gradually
     }
 
     // Jumping
@@ -138,13 +165,13 @@ function updatePlayer() {
             // Charging
             player.spindashCharge += 1;
             player.spindashTimer += 1;
-            if (player.spindashTimer > 30) {  // After 0.5 seconds, show spindash animation
+            if (player.spindashTimer > CONFIG.player.spindashChargeFrames) {  // After 0.5 seconds, show spindash animation
                 player.animation = 'spindash';
             }
         }
     } else if (!keys['s'] && player.spindashMode && player.spindashCharge > 0) {
         // Release: Dash with jump animation
-        player.velocityX = player.facing * player.spindashSpeed * (player.spindashCharge / 10);
+        player.velocityX = player.facing * CONFIG.player.spindashSpeed * (player.spindashCharge / 10);
         player.spindashCharge = 0;
         player.spindashTimer = 0;
         player.animation = 'jump';  // Rolling animation
