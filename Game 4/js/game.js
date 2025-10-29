@@ -27,6 +27,160 @@ const CONFIG = {
     }
 };
 
+class Player {
+    constructor() {
+        // Position and size
+        this.x = CONFIG.player.startX;
+        this.y = CONFIG.player.startY;
+        this.width = CONFIG.player.width;
+        this.height = CONFIG.player.height;
+
+        // Velocity
+        this.velocityX = 0;
+        this.velocityY = 0;
+
+        // Physics constants
+        this.acceleration = CONFIG.player.acceleration;
+        this.maxSpeed = CONFIG.player.maxSpeed;
+        this.gravity = CONFIG.player.gravity;
+        this.jumpStrength = CONFIG.player.jumpStrength;
+
+        // State
+        this.onGround = false;
+        this.facing = 1;
+        this.animation = 'idle';
+        this.spindashMode = false;
+        this.spindashCharge = 0;
+        this.spindashTimer = 0;
+    }
+
+    update(keys, ground) {
+        // Horizontal movement
+        if (keys['a']) {
+            this.velocityX -= this.acceleration;
+            if (this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
+            this.facing = -1;
+        } else if (keys['d']) {
+            this.velocityX += this.acceleration;
+            if (this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
+            this.facing = 1;
+        } else {
+            this.velocityX *= CONFIG.player.friction;
+        }
+
+        // Jumping
+        if (keys[' '] && this.onGround && !this.spindashMode) {
+            this.velocityY = this.jumpStrength;
+            this.onGround = false;
+            document.getElementById('jumpSound').play();
+        }
+
+        // Spindash: Press 's' to crouch, hold to charge, release to dash
+        if (keys['s'] && this.onGround) {
+            if (!this.spindashMode) {
+                this.spindashMode = true;
+                this.animation = 'crouch';
+                this.spindashTimer = 0;
+                document.getElementById('spindashSound').play();
+            } else {
+                // Charging
+                this.spindashCharge += 1;
+                this.spindashTimer += 1;
+                if (this.spindashTimer > CONFIG.player.spindashChargeFrames) {
+                    this.animation = 'spindash';
+                }
+            }
+        } else if (!keys['s'] && this.spindashMode && this.spindashCharge > 0) {
+            // Release: Dash with jump animation
+            this.velocityX = this.facing * CONFIG.player.spindashSpeed * (this.spindashCharge / 10);
+            this.spindashCharge = 0;
+            this.spindashTimer = 0;
+            this.animation = 'jump';
+            this.spindashMode = false;
+        }
+
+        // Apply horizontal velocity
+        this.x += this.velocityX;
+
+        // Apply gravity
+        this.velocityY += this.gravity;
+        this.y += this.velocityY;
+
+        // Ground collision
+        if (this.y + this.height >= ground.y) {
+            this.y = ground.y - this.height;
+            this.velocityY = 0;
+            this.onGround = true;
+            if (this.animation === 'spindash') {
+                this.animation = 'idle';
+                this.spindashMode = false;
+                this.spindashTimer = 0;
+            }
+        }
+
+        // Horizontal bounds
+        if (this.x < 0) {
+            this.x = 0;
+            if (this.animation === 'jump') {
+                this.animation = 'idle';
+                this.velocityX = 0;
+                this.spindashMode = false;
+                this.spindashTimer = 0;
+            }
+        }
+        if (this.x + this.width > canvas.width) {
+            this.x = canvas.width - this.width;
+            if (this.animation === 'jump') {
+                this.animation = 'idle';
+                this.velocityX = 0;
+                this.spindashMode = false;
+                this.spindashTimer = 0;
+            }
+        }
+
+        // Stop spindash if charge runs out
+        if (this.animation === 'jump' && Math.abs(this.velocityX) < 1) {
+            this.animation = 'idle';
+            this.spindashMode = false;
+            this.spindashTimer = 0;
+        }
+
+        // Set animation based on state
+        if (this.spindashMode || this.animation === 'jump') {
+            // Keep spindash states
+        } else if (!this.onGround) {
+            this.animation = 'jump';
+        } else if (Math.abs(this.velocityX) > this.maxSpeed * 0.8) {
+            this.animation = 'run';
+        } else if (Math.abs(this.velocityX) > 0.5) {
+            this.animation = 'walk';
+        } else {
+            this.animation = 'idle';
+        }
+    }
+
+    draw() {
+        const playerImg = document.getElementById('playerImg');
+        let src;
+        switch (this.animation) {
+            case 'idle': src = 'images/sonic.png'; break;
+            case 'walk': src = 'images/sonic_walk.gif'; break;
+            case 'run': src = 'images/sonic_run.gif'; break;
+            case 'jump': src = 'images/sonic_jump.gif'; break;
+            case 'crouch': src = 'images/sonic_crouch.gif'; break;
+            case 'spindash': src = 'images/sonic_spindash.gif'; break;
+        }
+        playerImg.src = src;
+        playerImg.style.left = this.x + 'px';
+        playerImg.style.top = this.y + 'px';
+        if (this.facing < 0) {
+            playerImg.style.transform = 'scaleX(-1)';
+        } else {
+            playerImg.style.transform = 'scaleX(1)';
+        }
+    }
+}
+
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -38,25 +192,8 @@ const backgroundImg = loadImage('images/green_hill.gif');
 // Game state ('title', 'zone', 'game')
 let gameState = 'title';
 
-// Player object (added acceleration and max speed)
-let player = {
-    x: CONFIG.player.startX,
-    y: CONFIG.player.startY,
-    width: CONFIG.player.width,
-    height: CONFIG.player.height,
-    velocityX: 0,
-    velocityY: 0,
-    acceleration: CONFIG.player.acceleration,
-    maxSpeed: CONFIG.player.maxSpeed,
-    gravity: CONFIG.player.gravity,
-    jumpStrength: CONFIG.player.jumpStrength,
-    onGround: false,
-    facing: 1,
-    animation: 'idle',
-    spindashMode: false,
-    spindashCharge: 0,
-    spindashTimer: 0
-};
+// Create player instance from class
+let player = new Player();
 
 // Ground object
 let ground = {
@@ -102,147 +239,10 @@ function drawBackground() {
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
 }
 
-// Function to draw the player (now updates img element)
-function drawPlayer() {
-    const playerImg = document.getElementById('playerImg');
-    let src;
-    switch (player.animation) {
-        case 'idle': src = 'images/sonic.png'; break;
-        case 'walk': src = 'images/sonic_walk.gif'; break;
-        case 'run': src = 'images/sonic_run.gif'; break;
-        case 'jump': src = 'images/sonic_jump.gif'; break;
-        case 'crouch': src = 'images/sonic_crouch.gif'; break;
-        case 'spindash': src = 'images/sonic_spindash.gif'; break;
-    }
-    playerImg.src = src;  // Always set src
-    console.log('Setting src to:', src, 'Animation:', player.animation);  // Debug
-    playerImg.style.left = player.x + 'px';
-    playerImg.style.top = player.y + 'px';
-    if (player.facing < 0) {
-        playerImg.style.transform = 'scaleX(-1)';
-    } else {
-        playerImg.style.transform = 'scaleX(1)';
-    }
-}
-
 // Function to draw the ground
 function drawGround() {
     ctx.fillStyle = ground.color;
     ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
-}
-
-// Function to update player position
-function updatePlayer() {
-    // Horizontal movement
-    if (keys['a']) {
-        player.velocityX -= player.acceleration;
-        if (player.velocityX < -player.maxSpeed) player.velocityX = -player.maxSpeed;
-        player.facing = -1;  // Face left
-    } else if (keys['d']) {
-        player.velocityX += player.acceleration;
-        if (player.velocityX > player.maxSpeed) player.velocityX = player.maxSpeed;
-        player.facing = 1;  // Face right
-    } else {
-        // No key: slide with friction
-        player.velocityX *= CONFIG.player.friction; // Little slide, slows down gradually
-    }
-
-    // Jumping
-    if (keys[' '] && player.onGround && !player.spindashMode) {
-        player.velocityY = player.jumpStrength;
-        player.onGround = false;
-        document.getElementById('jumpSound').play();  // Play jump sound
-    }
-
-    // Spindash: Press 's' to crouch, hold to charge, release to dash
-    if (keys['s'] && player.onGround) {
-        if (!player.spindashMode) {
-            player.spindashMode = true;
-            player.animation = 'crouch';  // Start with crouch
-            player.spindashTimer = 0;
-            document.getElementById('spindashSound').play();  // Play charge sound
-        } else {
-            // Charging
-            player.spindashCharge += 1;
-            player.spindashTimer += 1;
-            if (player.spindashTimer > CONFIG.player.spindashChargeFrames) {  // After 0.5 seconds, show spindash animation
-                player.animation = 'spindash';
-            }
-        }
-    } else if (!keys['s'] && player.spindashMode && player.spindashCharge > 0) {
-        // Release: Dash with jump animation
-        player.velocityX = player.facing * CONFIG.player.spindashSpeed * (player.spindashCharge / 10);
-        player.spindashCharge = 0;
-        player.spindashTimer = 0;
-        player.animation = 'jump';  // Rolling animation
-        player.spindashMode = false;
-    }
-
-    // Apply horizontal velocity
-    player.x += player.velocityX;
-
-    // Jumping
-    if (keys[' '] && player.onGround) {
-        player.velocityY = player.jumpStrength;
-        player.onGround = false;
-    }
-
-    // Apply gravity
-    player.velocityY += player.gravity;
-    player.y += player.velocityY;
-
-    // Ground collision
-    if (player.y + player.height >= ground.y) {
-        player.y = ground.y - player.height;
-        player.velocityY = 0;
-        player.onGround = true;
-        if (player.animation === 'spindash') {
-            player.animation = 'idle';  // End spindash
-            player.spindashMode = false;
-            player.spindashTimer = 0;
-        }
-    }
-
-    // Horizontal bounds
-    if (player.x < 0) {
-        player.x = 0;
-        if (player.animation === 'jump') { // Stop spindash on wall
-            player.animation = 'idle';
-            player.velocityX = 0;
-            player.spindashMode = false;
-            player.spindashTimer = 0;
-        }
-    }
-    if (player.x + player.width > canvas.width) {
-        player.x = canvas.width - player.width;
-        if (player.animation === 'jump') { // Stop spindash on wall
-            player.animation = 'idle';
-            player.velocityX = 0;
-            player.spindashMode = false;
-            player.spindashTimer = 0;
-        }
-    }
-
-    // Stop spindash if charge runs out
-    if (player.animation === 'jump' && Math.abs(player.velocityX) < 1) {
-        player.animation = 'idle';
-        player.spindashMode = false;
-        player.spindashTimer = 0;
-    }
-
-    // Set animation based on state
-    if (player.spindashMode || player.animation === 'jump') {
-        // Keep spindash states
-    } else if (!player.onGround) {
-        player.animation = 'jump';
-    } else if (Math.abs(player.velocityX) > player.maxSpeed * 0.8) {
-        player.animation = 'run';
-    } else if (Math.abs(player.velocityX) > 0.5) {
-        player.animation = 'walk';
-    } else {
-        player.animation = 'idle';
-    }
-    console.log('Player animation set to:', player.animation, 'VelocityX:', player.velocityX);  // Debug
 }
 
 // Game loop
@@ -265,10 +265,10 @@ function gameLoop() {
         // Hide player img
         document.getElementById('playerImg').style.display = 'none';
     } else if (gameState === 'game') {
-        updatePlayer();
+        player.update(keys, ground);  // ✅ Use class method
         drawBackground();
         drawGround();
-        drawPlayer();
+        player.draw();  // ✅ Use class method
         // Play level music if not already
         const bgMusic = document.getElementById('bgMusic');
         if (bgMusic.paused) bgMusic.play();
