@@ -181,127 +181,123 @@ class Player {
     }
 }
 
+class Game {
+    constructor(canvas, ctx) {
+        this.canvas = canvas;
+        this.ctx = ctx;
+
+        this.state = 'title';
+
+        this.player = new Player();
+        this.ground = {
+            x: 0,
+            y: canvas.height - CONFIG.ground.height,
+            width: canvas.width,
+            height: CONFIG.ground.height,
+            color: CONFIG.ground.color,
+        };
+
+        this.keys = {};
+    
+        this.titleImg = this.loadImage('images/TitleScreen.png');
+        this.backgroundImg = this.loadImage('images/green_hill.gif');
+
+        this.setupInputHandlers();
+    }
+
+    loadImage(src) {
+        const img = new Image();
+        img.src = src;
+        return img;
+    }
+
+    setupInputHandlers() {
+        document.addEventListener('keydown', (e) => {
+            this.keys[e.key] = true;
+            if (this.state === 'title' && e.key === ' ') {
+                this.state = 'zone';
+                setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            this.keys[e.key] = false;
+        });
+    }
+
+    drawTitle() {
+        this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
+    }
+
+    drawZone() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '48px Arial';
+        this.ctx.fillText('Test Zone', this.canvas.width / 2 - 150, this.canvas.height / 2);
+    }
+
+    drawBackground() {
+        this.ctx.drawImage(this.backgroundImg, 0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    drawGround() {
+        this.ctx.fillStyle = this.ground.color;
+        this.ctx.fillRect(this.ground.x, this.ground.y, this.ground.width, this.ground.height);
+    }
+
+    
+    loop() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        if (this.state === 'title') {
+            this.drawTitle();
+            const titleMusic = document.getElementById('titleMusic');
+            if (titleMusic.paused) titleMusic.play();
+            document.getElementById('bgMusic').pause();
+            document.getElementById('playerImg').style.display = 'none';
+        } else if (this.state === 'zone') {
+            this.drawZone();
+            document.getElementById('titleMusic').pause();
+            document.getElementById('bgMusic').pause();
+            document.getElementById('playerImg').style.display = 'none';
+        } else if (this.state === 'game') {
+            this.player.update(this.keys, this.ground);
+            this.drawBackground();
+            this.drawGround();
+            this.player.draw();
+            const bgMusic = document.getElementById('bgMusic');
+            if (bgMusic.paused) bgMusic.play();
+            document.getElementById('playerImg').style.display = 'block';
+        }
+        
+        requestAnimationFrame(() => this.loop());
+    }
+
+    start() {
+        let imagesLoaded = 0;
+        const totalImages = 2;
+        
+        const checkLoaded = () => {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                document.getElementById('playerImg').style.display = 'block';
+                this.loop();
+            }
+        };
+        
+        this.titleImg.onload = checkLoaded;
+        this.backgroundImg.onload = checkLoaded;
+    }
+}
+
 // Get the canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Load images
-const titleImg = loadImage('images/TitleScreen.png');  // Title screen image
-const backgroundImg = loadImage('images/green_hill.gif');
-
-// Game state ('title', 'zone', 'game')
-let gameState = 'title';
-
-// Create player instance from class
-let player = new Player();
-
-// Ground object
-let ground = {
-    x: 0,
-    y: canvas.height - CONFIG.ground.height,
-    width: canvas.width,
-    height: CONFIG.ground.height,
-    color: CONFIG.ground.color
-};
-
-// Key states
-let keys = {};
-
-// Listen for key presses
-document.addEventListener('keydown', (e) => {
-    keys[e.key] = true;
-    if (gameState === 'title' && e.key === ' ') {
-        gameState = 'zone';
-        setTimeout(() => gameState = 'game', CONFIG.game.zoneDisplayTimer);  // Show zone for 2 seconds
-    }
-});
-document.addEventListener('keyup', (e) => keys[e.key] = false);
-
-// Function to draw title screen
-function drawTitle() {
-    ctx.drawImage(titleImg, 0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '24px Arial';
-    ctx.fillText('Press SPACE to Start', canvas.width / 2 - 100, canvas.height - 50);
-}
-
-// Function to draw zone screen
-function drawZone() {
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '48px Arial';
-    ctx.fillText('Test Zone', canvas.width / 2 - 150, canvas.height / 2);
-}
-
-// Function to draw the background
-function drawBackground() {
-    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
-}
-
-// Function to draw the ground
-function drawGround() {
-    ctx.fillStyle = ground.color;
-    ctx.fillRect(ground.x, ground.y, ground.width, ground.height);
-}
-
-// Game loop
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (gameState === 'title') {
-        drawTitle();
-        // Play title music if not already
-        const titleMusic = document.getElementById('titleMusic');
-        if (titleMusic.paused) titleMusic.play();
-        // Pause level music
-        document.getElementById('bgMusic').pause();
-        // Hide player img
-        document.getElementById('playerImg').style.display = 'none';
-    } else if (gameState === 'zone') {
-        drawZone();
-        // Pause both
-        document.getElementById('titleMusic').pause();
-        document.getElementById('bgMusic').pause();
-        // Hide player img
-        document.getElementById('playerImg').style.display = 'none';
-    } else if (gameState === 'game') {
-        player.update(keys, ground);  // ✅ Use class method
-        drawBackground();
-        drawGround();
-        player.draw();  // ✅ Use class method
-        // Play level music if not already
-        const bgMusic = document.getElementById('bgMusic');
-        if (bgMusic.paused) bgMusic.play();
-        // Show player img
-        document.getElementById('playerImg').style.display = 'block';
-    }
-    requestAnimationFrame(gameLoop);
-}
-
-// Start the game (wait for images to load)
-let imagesLoaded = 0;
-const totalImages = 2;  // titleImg and backgroundImg
-
-function checkImagesLoaded() {
-    imagesLoaded++;
-    if (imagesLoaded === totalImages) {
-        // Show player img
-        document.getElementById('playerImg').style.display = 'block';
-        gameLoop();
-    }
-}
-
-function checkImagesLoaded() {
-    imagesLoaded++;
-    if (imagesLoaded === totalImages) {
-        // Play music
-        const bgMusic = document.getElementById('bgMusic');
-        bgMusic.play();
-        // Show player img
-        document.getElementById('playerImg').style.display = 'block';
-        gameLoop();
-    }
-}
-
-titleImg.onload = checkImagesLoaded;
-backgroundImg.onload = checkImagesLoaded;
+// Create and start the game
+const game = new Game(canvas, ctx);
+game.start();
