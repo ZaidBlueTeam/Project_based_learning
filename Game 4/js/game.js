@@ -24,11 +24,37 @@ const CONFIG = {
 
     game: {
         zoneDisplayTimer: 2005
+    },
+
+    enemy: {
+        width: 50,
+        height: 50,
+        speed: 2,
+        patrolDistance: 200
+    },
+
+    assets: {
+        images: {
+            titleScreen: 'images/TitleScreen.png',
+            background: 'images/green_hill.gif',
+            sonicIdle: 'images/sonic.png',
+            sonicWalk: 'images/sonic_walk.gif',
+            sonicRun: 'images/sonic_run.gif',
+            sonicJump: 'images/sonic_jump.gif',
+            sonicCrouch: 'images/sonic_crouch.gif',
+            sonicSpindash: 'images/sonic_spindash.gif'
+        },
+        audio: {
+            titleMusic: 'audio/title.mp3',
+            bgMusic: 'audio/green_hill.ogg',
+            jumpSound: 'audio/jump.wav',
+            spindashSound: 'audio/spindash.wav'
+        }
     }
 };
 
 class Player {
-    constructor() {
+    constructor(assetManager) {
         // Position and size
         this.x = CONFIG.player.startX;
         this.y = CONFIG.player.startY;
@@ -52,6 +78,12 @@ class Player {
         this.spindashMode = false;
         this.spindashCharge = 0;
         this.spindashTimer = 0;
+        
+        // Store asset manager reference
+        this.assets = assetManager;
+
+        // Jump control - prevent bunny hopping
+        this.jumpKeyWasPressed = false;
     }
 
     update(keys, ground) {
@@ -68,11 +100,16 @@ class Player {
             this.velocityX *= CONFIG.player.friction;
         }
 
-        // Jumping
-        if (keys[' '] && this.onGround && !this.spindashMode) {
-            this.velocityY = this.jumpStrength;
-            this.onGround = false;
-            document.getElementById('jumpSound').play();
+        // Jumping - must release and press again (no bunny hopping)
+        if (keys[' ']) {
+            if (this.onGround && !this.spindashMode && !this.jumpKeyWasPressed) {
+                this.velocityY = this.jumpStrength;
+                this.onGround = false;
+                this.assets.getAudio('jumpSound').play();
+            }
+            this.jumpKeyWasPressed = true;  // Mark that jump key is being held
+        } else {
+            this.jumpKeyWasPressed = false;  // Reset when key is released
         }
 
         // Spindash: Press 's' to crouch, hold to charge, release to dash
@@ -81,7 +118,7 @@ class Player {
                 this.spindashMode = true;
                 this.animation = 'crouch';
                 this.spindashTimer = 0;
-                document.getElementById('spindashSound').play();
+                this.assets.getAudio('spindashSound').play();
             } else {
                 // Charging
                 this.spindashCharge += 1;
@@ -180,15 +217,148 @@ class Player {
         }
     }
 }
+class Enemy {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = CONFIG.enemy.width;
+        this.height = CONFIG.enemy.height;
+        this.speed = CONFIG.enemy.speed;
+        
+        // Movement
+        this.startX = x;
+        this.direction = 1;  // 1 = right, -1 = left
+        this.patrolDistance = CONFIG.enemy.patrolDistance;
+        
+        // State
+        this.isAlive = true;
+    }
+    
+    update() {
+        if (!this.isAlive) return;
+        
+        // Patrol back and forth
+        this.x += this.speed * this.direction;
+        
+        // Turn around at patrol boundaries
+        if (this.x > this.startX + this.patrolDistance) {
+            this.direction = -1;
+        } else if (this.x < this.startX - this.patrolDistance) {
+            this.direction = 1;
+        }
+    }
+    
+    draw(ctx) {
+        if (!this.isAlive) return;
+        
+        // Draw enemy as red rectangle (we'll add sprites later)
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        // Draw eyes
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x + 10, this.y + 10, 10, 10);
+        ctx.fillRect(this.x + 30, this.y + 10, 10, 10);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x + 15, this.y + 15, 5, 5);
+        ctx.fillRect(this.x + 35, this.y + 15, 5, 5);
+    }
+    
+    checkCollision(player) {
+        if (!this.isAlive) return false;
+        
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+    
+    destroy() {
+        this.isAlive = false;
+    }
+}
+class AssetManager {
+    constructor() {
+        this.images = {};
+        this.audio = {};
+        this.loadedCount = 0;
+        this.totalAssets = 0;
+    }
+
+    loadImage(name, src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                this.images[name] = img;
+                this.loadedCount++;
+                resolve(img);
+            };
+            img.onerror = () => {
+                console.error(`Failed to load image: ${src}`);
+                reject(new Error(`Failed to load image: ${src}`));
+            };
+            img.src = src;
+        });
+    }
+
+    loadAudio(name, src) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            audio.oncanplaythrough = () => {
+                this.audio[name] = audio;
+                this.loadedCount++;
+                resolve(audio);
+            };
+            audio.onerror = () => {
+                console.error(`Failed to load audio: ${src}`);
+                reject(new Error(`Failed to load audio: ${src}`));
+            };
+            audio.src = src;
+        });
+    }
+
+    async loadAll() {
+        const imagePromises = [];
+        const audioPromises = [];
+
+        // Load all images from CONFIG
+        for (const [name, src] of Object.entries(CONFIG.assets.images)) {
+            imagePromises.push(this.loadImage(name, src));
+            this.totalAssets++;
+        }
+
+        // Load all audio from CONFIG
+        for (const [name, src] of Object.entries(CONFIG.assets.audio)) {
+            audioPromises.push(this.loadAudio(name, src));
+            this.totalAssets++;
+        }
+
+        // Wait for all assets to load
+        await Promise.all([...imagePromises, ...audioPromises]);
+    }
+
+    getImage(name) {
+        return this.images[name];
+    }
+
+    getAudio(name) {
+        return this.audio[name];
+    }
+
+    getProgress() {
+        return this.totalAssets > 0 ? this.loadedCount / this.totalAssets : 0;
+    }
+}
 
 class Game {
-    constructor(canvas, ctx) {
+    constructor(canvas, ctx, assetManager) {
         this.canvas = canvas;
         this.ctx = ctx;
+        this.assets = assetManager;
 
         this.state = 'title';
 
-        this.player = new Player();
+        this.player = new Player(assetManager);
         this.ground = {
             x: 0,
             y: canvas.height - CONFIG.ground.height,
@@ -198,17 +368,14 @@ class Game {
         };
 
         this.keys = {};
-    
-        this.titleImg = this.loadImage('images/TitleScreen.png');
-        this.backgroundImg = this.loadImage('images/green_hill.gif');
+
+        // Create enemies
+        this.enemies = [
+            new Enemy(400, this.ground.y - CONFIG.enemy.height),
+            new Enemy(700, this.ground.y - CONFIG.enemy.height)
+        ];
 
         this.setupInputHandlers();
-    }
-
-    loadImage(src) {
-        const img = new Image();
-        img.src = src;
-        return img;
     }
 
     setupInputHandlers() {
@@ -225,12 +392,14 @@ class Game {
         });
     }
 
-    drawTitle() {
-        this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '24px Arial';
-        this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
-    }
+drawTitle() {
+    // OLD: this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
+    // NEW:
+    this.ctx.drawImage(this.assets.getImage('titleScreen'), 0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = 'white';
+    this.ctx.font = '24px Arial';
+    this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
+}
 
     drawZone() {
         this.ctx.fillStyle = 'black';
@@ -241,8 +410,10 @@ class Game {
     }
 
     drawBackground() {
-        this.ctx.drawImage(this.backgroundImg, 0, 0, this.canvas.width, this.canvas.height);
-    }
+    // OLD: this.ctx.drawImage(this.backgroundImg, 0, 0, this.canvas.width, this.canvas.height);
+    // NEW:
+    this.ctx.drawImage(this.assets.getImage('background'), 0, 0, this.canvas.width, this.canvas.height);
+}
 
     drawGround() {
         this.ctx.fillStyle = this.ground.color;
@@ -250,47 +421,67 @@ class Game {
     }
 
     
-    loop() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+loop() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    if (this.state === 'title') {
+        this.drawTitle();
+        const titleMusic = this.assets.getAudio('titleMusic');  // ✅ Changed
+        if (titleMusic.paused) titleMusic.play();
+        this.assets.getAudio('bgMusic').pause();  // ✅ Changed
+        document.getElementById('playerImg').style.display = 'none';
+    } else if (this.state === 'zone') {
+        this.drawZone();
+        this.assets.getAudio('titleMusic').pause();  // ✅ Changed
+        this.assets.getAudio('bgMusic').pause();  // ✅ Changed
+        document.getElementById('playerImg').style.display = 'none';
+    } else if (this.state === 'game') {
+        this.player.update(this.keys, this.ground);
         
-        if (this.state === 'title') {
-            this.drawTitle();
-            const titleMusic = document.getElementById('titleMusic');
-            if (titleMusic.paused) titleMusic.play();
-            document.getElementById('bgMusic').pause();
-            document.getElementById('playerImg').style.display = 'none';
-        } else if (this.state === 'zone') {
-            this.drawZone();
-            document.getElementById('titleMusic').pause();
-            document.getElementById('bgMusic').pause();
-            document.getElementById('playerImg').style.display = 'none';
-        } else if (this.state === 'game') {
-            this.player.update(this.keys, this.ground);
-            this.drawBackground();
-            this.drawGround();
-            this.player.draw();
-            const bgMusic = document.getElementById('bgMusic');
-            if (bgMusic.paused) bgMusic.play();
-            document.getElementById('playerImg').style.display = 'block';
+        // Update and check enemies
+        for (let enemy of this.enemies) {
+            enemy.update();
+            
+            if (enemy.checkCollision(this.player)) {
+                // Check if player is attacking (jumping from above or spindashing)
+                const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
+                const isSpindashing = this.player.animation === 'jump' && Math.abs(this.player.velocityX) > this.player.maxSpeed;
+                
+                if (isJumpingDown) {
+                    // Player destroys enemy by jumping on it
+                    enemy.destroy();
+                    this.player.velocityY = CONFIG.player.jumpStrength * 0.5;  // Bounce
+                } else if (isSpindashing) {
+                    // Spindash destroys enemy
+                    enemy.destroy();
+                } else {
+                    // Enemy hits player (placeholder for damage)
+                    console.log('Player hit by enemy! (Will add damage system later)');
+                    // TODO: Add knockback, rings loss, invincibility frames
+                }
+            }
         }
         
-        requestAnimationFrame(() => this.loop());
+        this.drawBackground();
+        this.drawGround();
+        
+        // Draw enemies
+        for (let enemy of this.enemies) {
+            enemy.draw(this.ctx);
+        }
+        
+        this.player.draw();
+        const bgMusic = this.assets.getAudio('bgMusic');
+        if (bgMusic.paused) bgMusic.play();
+        document.getElementById('playerImg').style.display = 'block';
     }
+    
+    requestAnimationFrame(() => this.loop());
+}
 
     start() {
-        let imagesLoaded = 0;
-        const totalImages = 2;
-        
-        const checkLoaded = () => {
-            imagesLoaded++;
-            if (imagesLoaded === totalImages) {
-                document.getElementById('playerImg').style.display = 'block';
-                this.loop();
-            }
-        };
-        
-        this.titleImg.onload = checkLoaded;
-        this.backgroundImg.onload = checkLoaded;
+        document.getElementById('playerImg').style.display = 'block';
+        this.loop();
     }
 }
 
@@ -298,6 +489,10 @@ class Game {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Create and start the game
-const game = new Game(canvas, ctx);
-game.start();
+// Create asset manager and load all assets
+const assetManager = new AssetManager();
+assetManager.loadAll().then(() => {
+    // After assets load, create and start the game
+    const game = new Game(canvas, ctx, assetManager);
+    game.start();
+});
