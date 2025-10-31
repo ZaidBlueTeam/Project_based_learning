@@ -296,8 +296,25 @@ class Player {
         this.rings++;
     }
     
-    loseRings() {
+    loseRings(game) {
         if (this.rings > 0) {
+            // Scatter rings in random directions
+            for (let i = 0; i < this.rings; i++) {
+                // Random angle and speed
+                const angle = (Math.PI * 2 * i) / this.rings;  // Evenly spread
+                const speed = 3 + Math.random() * 2;  // 3-5 pixels/frame
+                const velocityX = Math.cos(angle) * speed;
+                const velocityY = Math.sin(angle) * speed - 2;  // Slight upward
+                
+                // Create scattered ring at player position
+                const scatteredRing = new ScatteredRing(
+                    this.x + this.width / 2,
+                    this.y + this.height / 2,
+                    velocityX,
+                    velocityY
+                );
+                game.scatteredRings.push(scatteredRing);
+            }
             this.rings = 0;
             this.makeInvincible();
         } else {
@@ -331,9 +348,9 @@ class Player {
         this.makeInvincible();
     }
     
-    takeDamage() {
+    takeDamage(game) {
         if (this.isInvincible || this.hurtTimer > 0) return;
-        this.loseRings();
+        this.loseRings(game);
         // Knockback
         this.velocityX = -this.facing * CONFIG.playerSettings.knockbackForce;
         this.velocityY = -5;
@@ -373,20 +390,20 @@ class Enemy {
         }
     }
     
-    draw(ctx) {
+    draw(ctx, cameraX) {
         if (!this.isAlive) return;
         
         // Draw enemy as red rectangle (we'll add sprites later)
         ctx.fillStyle = 'red';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
         
         // Draw eyes
         ctx.fillStyle = 'white';
-        ctx.fillRect(this.x + 10, this.y + 10, 10, 10);
-        ctx.fillRect(this.x + 30, this.y + 10, 10, 10);
+        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 10, 10);
+        ctx.fillRect(this.x - cameraX + 30, this.y + 10, 10, 10);
         ctx.fillStyle = 'black';
-        ctx.fillRect(this.x + 15, this.y + 15, 5, 5);
-        ctx.fillRect(this.x + 35, this.y + 15, 5, 5);
+        ctx.fillRect(this.x - cameraX + 15, this.y + 15, 5, 5);
+        ctx.fillRect(this.x - cameraX + 35, this.y + 15, 5, 5);
     }
     
     checkCollision(player) {
@@ -421,11 +438,11 @@ class Ring {
         this.animationFrame = (this.animationFrame + 0.2) % 360;
     }
     
-    draw(ctx) {
+    draw(ctx, cameraX) {
         if (this.collected) return;
         
         ctx.save();
-        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.translate((this.x - cameraX) + this.width / 2, this.y + this.height / 2);
         ctx.rotate(this.animationFrame * Math.PI / 180);
         
         ctx.fillStyle = 'gold';
@@ -446,6 +463,77 @@ class Ring {
     }
     
     checkCollision(player) {
+        if (this.collected) return false;
+        
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+    
+    collect() {
+        this.collected = true;
+    }
+}
+
+class ScatteredRing {
+    constructor(x, y, velocityX, velocityY) {
+        this.x = x;
+        this.y = y;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.width = CONFIG.ring.width;
+        this.height = CONFIG.ring.height;
+        this.collected = false;
+        this.animationFrame = 0;
+        this.lifetime = 480;  // 8 seconds at 60fps before disappearing  
+    }
+
+        update() {
+        if (this.collected) return;
+        
+        // Apply gravity (rings fall down)
+        this.velocityY += 0.2;
+        
+        // Move
+        this.x += this.velocityX;
+        this.y += this.velocityY;
+        
+        // Rotate for animation
+        this.animationFrame = (this.animationFrame + 0.2) % 360;
+        
+        // Countdown lifetime
+        this.lifetime--;
+        if (this.lifetime <= 0) {
+            this.collected = true;  // Remove after time
+        }
+    }
+
+        draw(ctx, cameraX) {
+        if (this.collected) return;
+        
+        ctx.save();
+        ctx.translate((this.x - cameraX) + this.width / 2, this.y + this.height / 2);
+        ctx.rotate(this.animationFrame * Math.PI / 180);
+        
+        ctx.fillStyle = 'gold';
+        ctx.strokeStyle = 'orange';
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.width / 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+        checkCollision(player) {
         if (this.collected) return false;
         
         return player.x < this.x + this.width &&
@@ -553,32 +641,41 @@ class Game {
         this.ground = {
             x: 0,
             y: canvas.height - CONFIG.ground.height,
-            width: canvas.width,
+            width: 2000,  // Level width
             height: CONFIG.ground.height,
             color: CONFIG.ground.color,
         };
 
         this.keys = {};
 
-        // Create enemies
+        // Create enemies across the level
         this.enemies = [
             new Enemy(400, this.ground.y - CONFIG.enemy.height),
-            new Enemy(700, this.ground.y - CONFIG.enemy.height)
+            new Enemy(700, this.ground.y - CONFIG.enemy.height),
+            new Enemy(1200, this.ground.y - CONFIG.enemy.height),
+            new Enemy(1600, this.ground.y - CONFIG.enemy.height)
         ];
         
-        // Create rings
+        // Create rings across the level
         this.rings = [
             new Ring(250, this.ground.y - 100),
             new Ring(300, this.ground.y - 100),
             new Ring(350, this.ground.y - 100),
             new Ring(500, this.ground.y - 50),
             new Ring(550, this.ground.y - 50),
-            new Ring(600, this.ground.y - 150)
+            new Ring(600, this.ground.y - 150),
+            new Ring(1000, this.ground.y - 80),
+            new Ring(1100, this.ground.y - 120),
+            new Ring(1500, this.ground.y - 60),
+            new Ring(1600, this.ground.y - 100)
         ];
 
         this.setupInputHandlers();
         this.deathBlackScreenTimer = 0;
         this.timer = 0;
+        this.scatteredRings = [];
+        this.cameraX = 0;
+        this.levelWidth = 2000;
     }
 
     setupInputHandlers() {
@@ -633,6 +730,8 @@ class Game {
         ];
         this.deathBlackScreenTimer = 0;
         this.timer = 0;
+        this.scatteredRings = [];
+        this.cameraX = 0;
         // Restart background music
         const bgMusic = this.assets.getAudio('bgMusic');
         bgMusic.currentTime = 0;
@@ -660,12 +759,12 @@ drawTitle() {
     drawBackground() {
     // OLD: this.ctx.drawImage(this.backgroundImg, 0, 0, this.canvas.width, this.canvas.height);
     // NEW:
-    this.ctx.drawImage(this.assets.getImage('background'), 0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.drawImage(this.assets.getImage('background'), -this.cameraX, 0, this.canvas.width, this.canvas.height);
 }
 
     drawGround() {
         this.ctx.fillStyle = this.ground.color;
-        this.ctx.fillRect(this.ground.x, this.ground.y, this.ground.width, this.ground.height);
+        this.ctx.fillRect(this.ground.x - this.cameraX, this.ground.y, this.ground.width, this.ground.height);
     }
     
     drawHUD() {
@@ -762,15 +861,37 @@ loop() {
                     } else if (isSpindashing) {
                         enemy.destroy();
                     } else {
-                        this.player.takeDamage();
+                        this.player.takeDamage(this);
                     }
                 }
             }
+            // Update and check scattered rings
+            for (let i = this.scatteredRings.length - 1; i >= 0; i--) {
+                const ring = this.scatteredRings[i];
+                ring.update();
+                if (ring.checkCollision(this.player)) {
+                    ring.collect();
+                    this.player.collectRing();
+                    this.scatteredRings.splice(i, 1);  // Remove from array
+                } else if (ring.lifetime <= 0) {
+                    this.scatteredRings.splice(i, 1);  // Remove expired
+                }
+            }
+            // Update camera to follow player
+            const targetCameraX = this.player.x - this.canvas.width / 2;
+            this.cameraX += (targetCameraX - this.cameraX) * 0.1;  // Smooth follow
+            
+            // Clamp camera to level bounds
+            this.cameraX = Math.max(0, Math.min(this.cameraX, this.levelWidth - this.canvas.width));
             this.timer++;
             this.drawBackground();
             this.drawGround();
-            for (let ring of this.rings) ring.draw(this.ctx);
-            for (let enemy of this.enemies) enemy.draw(this.ctx);
+            for (let ring of this.rings) ring.draw(this.ctx, this.cameraX);
+            for (let enemy of this.enemies) enemy.draw(this.ctx, this.cameraX);
+            // Draw scattered rings
+            for (let ring of this.scatteredRings) {
+                ring.draw(this.ctx, this.cameraX);
+            }
             this.player.draw();
             this.drawHUD();
             const bgMusic = this.assets.getAudio('bgMusic');
