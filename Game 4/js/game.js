@@ -27,15 +27,15 @@ const CONFIG = {
     },
 
     enemy: {
-        width: 50,
-        height: 50,
+        width: 35,
+        height: 35,
         speed: 2,
         patrolDistance: 200
     },
 
     ring: {
-        width: 30,
-        height: 30,
+        width: 20,
+        height: 20,
         value: 1
     },
 
@@ -219,6 +219,7 @@ class Player {
         let onPlatform = false;
         for (let platform of game.platforms) {
             if (platform.checkCollision(this)) {
+                console.log('Landing on platform at y:', platform.y, 'player y will be:', platform.y - this.height);
                 this.y = platform.y - this.height;
                 this.velocityY = 0;
                 this.onGround = true;
@@ -229,6 +230,8 @@ class Player {
         
         // If not on platform, check ground
         if (!onPlatform && this.y + this.height >= ground.y) {
+            console.log('Ground collision: player.y =', this.y, 'player.height =', this.height, 'ground.y =', ground.y);
+            console.log('Condition:', this.y + this.height, '>=', ground.y, '=', this.y + this.height >= ground.y);
             this.y = ground.y - this.height;
             this.velocityY = 0;
             this.onGround = true;
@@ -401,7 +404,9 @@ class Player {
     
     takeDamage(game) {
         if (this.isInvincible || this.hurtTimer > 0) return;
+        console.log('Player took damage! Rings before:', this.rings);
         this.loseRings(game);
+        console.log('Rings after damage:', this.rings);
         // Knockback
         this.velocityX = -this.facing * CONFIG.playerSettings.knockbackForce;
         this.velocityY = -5;
@@ -448,13 +453,13 @@ class Enemy {
         ctx.fillStyle = 'red';
         ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
         
-        // Draw eyes
+        // Draw eyes (adjusted for smaller hitbox)
         ctx.fillStyle = 'white';
-        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 10, 10);
-        ctx.fillRect(this.x - cameraX + 30, this.y + 10, 10, 10);
+        ctx.fillRect(this.x - cameraX + 7, this.y + 7, 7, 7);
+        ctx.fillRect(this.x - cameraX + 21, this.y + 7, 7, 7);
         ctx.fillStyle = 'black';
-        ctx.fillRect(this.x - cameraX + 15, this.y + 15, 5, 5);
-        ctx.fillRect(this.x - cameraX + 35, this.y + 15, 5, 5);
+        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 4, 4);
+        ctx.fillRect(this.x - cameraX + 24, this.y + 10, 4, 4);
     }
     
     checkCollision(player) {
@@ -617,8 +622,8 @@ class Platform {
     checkCollision(player) {
         // Only collide if player is falling onto platform (from above)
         if (player.velocityY > 0 && 
-            player.y + player.height <= this.y + 10 &&  // Close to platform top
-            player.y + player.height >= this.y &&       // Touching or slightly below
+            player.y + player.height <= this.y + 20 &&  // Close to platform top (increased from 10)
+            player.y + player.height >= this.y - 5 &&   // Allow slight penetration (changed from >= this.y)
             player.x + player.width > this.x &&
             player.x < this.x + this.width) {
             return true;
@@ -1106,14 +1111,23 @@ loop() {
             for (let enemy of this.enemies) {
                 enemy.update();
                 if (enemy.checkCollision(this.player)) {
+                    console.log('Enemy collision detected!');
+                    console.log('Player position:', this.player.x, this.player.y);
+                    console.log('Enemy position:', enemy.x, enemy.y);
+                    console.log('Player onGround:', this.player.onGround, 'velocityY:', this.player.velocityY);
+                    console.log('Player animation:', this.player.animation, 'velocityX:', this.player.velocityX, 'maxSpeed:', this.player.maxSpeed);
                     const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
                     const isSpindashing = this.player.animation === 'jump' && Math.abs(this.player.velocityX) > this.player.maxSpeed;
+                    console.log('isJumpingDown:', isJumpingDown, 'isSpindashing:', isSpindashing);
                     if (isJumpingDown) {
+                        console.log('Destroying enemy - jumping down');
                         enemy.destroy();
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else if (isSpindashing) {
+                        console.log('Destroying enemy - spindashing');
                         enemy.destroy();
                     } else {
+                        console.log('Taking damage from enemy');
                         this.player.takeDamage(this);
                     }
                 }
