@@ -45,6 +45,31 @@ const CONFIG = {
         knockbackForce: 10
     },
 
+    platform: {
+        width: 100,
+        height: 20,
+        color: 'brown'
+
+    },
+
+    spring: {
+        width: 40,
+        height: 20,
+        bounceStrength: -20,
+        color: 'yellow'
+    },
+
+    goal: {
+        width: 50,
+        height: 100,
+        color: 'purple'
+    },
+
+    level: {
+        width: 4000,
+        completeMessage: "ZONE CLEARED!"
+    },
+
     assets: {
         images: {
             titleScreen: 'images/TitleScreen.png',
@@ -62,7 +87,8 @@ const CONFIG = {
             titleMusic: 'audio/title.mp3',
             bgMusic: 'audio/green_hill.ogg',
             jumpSound: 'audio/jump.wav',
-            spindashSound: 'audio/spindash.wav'
+            spindashSound: 'audio/spindash.wav',
+            springSound: 'audio/spring.wav'
         }
     }
 };
@@ -112,7 +138,7 @@ class Player {
         this.hurtTimer = 0;
     }
 
-    update(keys, ground) {
+    update(keys, ground, game) {
         // If death animation is running, override normal update
         if (this.isDeathAnimating) {
             this.deathAnimTimer++;
@@ -190,7 +216,19 @@ class Player {
         this.y += this.velocityY;
 
         // Ground collision
-        if (this.y + this.height >= ground.y) {
+        let onPlatform = false;
+        for (let platform of game.platforms) {
+            if (platform.checkCollision(this)) {
+                this.y = platform.y - this.height;
+                this.velocityY = 0;
+                this.onGround = true;
+                onPlatform = true;
+                break;  // Only land on one platform
+            }
+        }
+        
+        // If not on platform, check ground
+        if (!onPlatform && this.y + this.height >= ground.y) {
             this.y = ground.y - this.height;
             this.velocityY = 0;
             this.onGround = true;
@@ -198,6 +236,19 @@ class Player {
                 this.animation = 'idle';
                 this.spindashMode = false;
                 this.spindashTimer = 0;
+            }
+        } else if (!onPlatform) {
+            this.onGround = false;
+        }
+
+        // Spring collision
+        for (let spring of game.springs) {
+            if (spring.checkCollision(this)) {
+                this.velocityY = CONFIG.spring.bounceStrength;
+                this.onGround = false;
+                const springAudio = this.assets.getAudio('springSound');
+                if (springAudio) springAudio.play();
+                break;  // Only bounce on one spring
             }
         }
 
@@ -547,6 +598,122 @@ class ScatteredRing {
     }
 }
 
+// ============================
+// PLATFORM CLASS
+// ============================
+class Platform {
+    constructor(x, y, width) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = CONFIG.platform.height;
+    }
+
+        draw(ctx, cameraX) {
+        ctx.fillStyle = CONFIG.platform.color;
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+    }
+    
+    checkCollision(player) {
+        // Only collide if player is falling onto platform (from above)
+        if (player.velocityY > 0 && 
+            player.y + player.height <= this.y + 10 &&  // Close to platform top
+            player.y + player.height >= this.y &&       // Touching or slightly below
+            player.x + player.width > this.x &&
+            player.x < this.x + this.width) {
+            return true;
+        }
+        return false;
+    }
+}
+
+// ============================
+// SPRING CLASS
+// ============================
+class Spring {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = CONFIG.spring.width;
+        this.height = CONFIG.spring.height;
+        this.bounceStrength = CONFIG.spring.bounceStrength;
+        this.animationFrame = 0;
+        this.isBouncing = false;
+    }
+    
+    update() {
+        if (this.isBouncing) {
+            this.animationFrame++;
+            if (this.animationFrame > 10) {  // Animation lasts 10 frames
+                this.isBouncing = false;
+                this.animationFrame = 0;
+            }
+        }
+    }
+    
+    draw(ctx, cameraX) {
+        ctx.fillStyle = CONFIG.spring.color;
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Draw spring coils (simple animation)
+        ctx.fillStyle = 'black';
+        const coilHeight = this.isBouncing ? 5 : 10;  // Compress when bouncing
+        for (let i = 0; i < 3; i++) {
+            ctx.fillRect(this.x - cameraX + 5 + i * 10, this.y + 5, 5, coilHeight);
+        }
+    }
+    
+    checkCollision(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+    
+    bounce(player) {
+        player.velocityY = this.bounceStrength;  // Launch up!
+        player.onGround = false;
+        this.isBouncing = true;  // Trigger animation
+        // TODO: Play spring sound
+    }
+}
+
+// ============================
+// GOAL CLASS
+// ============================
+class Goal {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = CONFIG.goal.width;
+        this.height = CONFIG.goal.height;
+    }
+    
+    draw(ctx, cameraX) {
+        ctx.fillStyle = CONFIG.goal.color;
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Draw flag pole
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x - cameraX + this.width / 2 - 2, this.y, 4, this.height);
+        
+        // Draw flag
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x - cameraX + this.width / 2 + 2, this.y + 10, 20, 15);
+    }
+    
+    update() {
+        // Goal doesn't need animation, but method is required for consistency
+    }
+    
+    checkCollision(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+}
+
 class AssetManager {
     constructor() {
         this.images = {};
@@ -630,6 +797,26 @@ class Game {
         this.ctx.font = '24px Arial';
         this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 40);
     }
+    
+    drawLevelComplete() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'gold';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.fillText('LEVEL COMPLETE!', this.canvas.width / 2 - 200, this.canvas.height / 2 - 40);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText(`Time: ${this.formatTime(this.timer)}`, this.canvas.width / 2 - 80, this.canvas.height / 2 + 20);
+        this.ctx.fillText(`Rings: ${this.player.rings}`, this.canvas.width / 2 - 60, this.canvas.height / 2 + 50);
+        this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 80);
+    }
+    
+    formatTime(frames) {
+        const totalSeconds = Math.floor(frames / 60);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
     constructor(canvas, ctx, assetManager) {
         this.canvas = canvas;
         this.ctx = ctx;
@@ -641,7 +828,7 @@ class Game {
         this.ground = {
             x: 0,
             y: canvas.height - CONFIG.ground.height,
-            width: 2000,  // Level width
+            width: CONFIG.level.width,  // Level width
             height: CONFIG.ground.height,
             color: CONFIG.ground.color,
         };
@@ -675,7 +862,29 @@ class Game {
         this.timer = 0;
         this.scatteredRings = [];
         this.cameraX = 0;
-        this.levelWidth = 2000;
+        this.levelWidth = CONFIG.level.width;  // Bigger level!
+
+        // Create platforms across the level
+        this.platforms = [
+            new Platform(800, 450, 150, 20),   // Floating platform
+            new Platform(1100, 400, 100, 20),  // Another one
+            new Platform(1400, 350, 120, 20),  // Higher platform
+            new Platform(1800, 300, 200, 20),  // Big platform
+            new Platform(2200, 400, 150, 20),  // More platforms
+            new Platform(2500, 350, 100, 20),
+            new Platform(2800, 450, 120, 20),
+            new Platform(3200, 300, 180, 20)
+        ];
+        
+        // Create springs on platforms
+        this.springs = [
+            new Spring(850, 430),   // On first platform
+            new Spring(1450, 330),  // On higher platform
+            new Spring(2850, 430)   // Near end
+        ];
+        
+        // Create goal at the end
+        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
     }
 
     setupInputHandlers() {
@@ -686,6 +895,9 @@ class Game {
                 setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
             }
             if (this.state === 'gameover' && (e.key === 'r' || e.key === 'R')) {
+                this.restartGame();
+            }
+            if (this.state === 'levelcomplete' && (e.key === 'r' || e.key === 'R')) {
                 this.restartGame();
             }
         });
@@ -709,6 +921,22 @@ class Game {
             new Ring(550, this.ground.y - 50),
             new Ring(600, this.ground.y - 150)
         ];
+        this.platforms = [
+            new Platform(800, this.ground.y - 100, 200),
+            new Platform(1200, this.ground.y - 150, 150),
+            new Platform(1600, this.ground.y - 200, 200),
+            new Platform(2000, this.ground.y - 100, 150),
+            new Platform(2400, this.ground.y - 150, 200),
+            new Platform(2800, this.ground.y - 200, 150),
+            new Platform(3200, this.ground.y - 100, 200)
+        ];
+        this.springs = [
+            new Spring(850, this.ground.y - 100 - CONFIG.spring.height),
+            new Spring(1250, this.ground.y - 150 - CONFIG.spring.height),
+            new Spring(2050, this.ground.y - 100 - CONFIG.spring.height),
+            new Spring(2850, this.ground.y - 200 - CONFIG.spring.height)
+        ];
+        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
         this.state = 'title';
     }
 
@@ -728,6 +956,22 @@ class Game {
             new Ring(550, this.ground.y - 50),
             new Ring(600, this.ground.y - 150)
         ];
+        this.platforms = [
+            new Platform(800, this.ground.y - 100, 200),
+            new Platform(1200, this.ground.y - 150, 150),
+            new Platform(1600, this.ground.y - 200, 200),
+            new Platform(2000, this.ground.y - 100, 150),
+            new Platform(2400, this.ground.y - 150, 200),
+            new Platform(2800, this.ground.y - 200, 150),
+            new Platform(3200, this.ground.y - 100, 200)
+        ];
+        this.springs = [
+            new Spring(850, this.ground.y - 100 - CONFIG.spring.height),
+            new Spring(1250, this.ground.y - 150 - CONFIG.spring.height),
+            new Spring(2050, this.ground.y - 100 - CONFIG.spring.height),
+            new Spring(2850, this.ground.y - 200 - CONFIG.spring.height)
+        ];
+        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
         this.deathBlackScreenTimer = 0;
         this.timer = 0;
         this.scatteredRings = [];
@@ -819,7 +1063,7 @@ loop() {
             this.drawGround();
             for (let ring of this.rings) ring.draw(this.ctx);
             for (let enemy of this.enemies) enemy.draw(this.ctx);
-            this.player.update(this.keys, this.ground);
+            this.player.update(this.keys, this.ground, this);
             this.player.draw();
             this.drawHUD();
             document.getElementById('playerImg').style.display = 'block';
@@ -840,7 +1084,7 @@ loop() {
                 }
             }
         } else {
-            this.player.update(this.keys, this.ground);
+            this.player.update(this.keys, this.ground, this);
             // Update and check rings
             for (let ring of this.rings) {
                 ring.update();
@@ -848,6 +1092,15 @@ loop() {
                     ring.collect();
                     this.player.collectRing();
                 }
+            }
+            // Update springs
+            for (let spring of this.springs) {
+                spring.update();
+            }
+            // Update goal
+            this.goal.update();
+            if (this.goal.checkCollision(this.player)) {
+                this.state = 'levelcomplete';
             }
             // Update and check enemies
             for (let enemy of this.enemies) {
@@ -879,15 +1132,27 @@ loop() {
             }
             // Update camera to follow player
             const targetCameraX = this.player.x - this.canvas.width / 2;
-            this.cameraX += (targetCameraX - this.cameraX) * 0.1;  // Smooth follow
+            this.cameraX += (targetCameraX - this.cameraX) * 0.15;  // Faster, more responsive follow
             
-            // Clamp camera to level bounds
-            this.cameraX = Math.max(0, Math.min(this.cameraX, this.levelWidth - this.canvas.width));
+            // Clamp camera with some freedom - allow looking ahead/behind
+            const lookAhead = 200;  // Allow camera to go 200px beyond level start
+            const lookBehind = 100; // Allow camera to go 100px beyond level end
+            this.cameraX = Math.max(-lookAhead, Math.min(this.cameraX, this.levelWidth - this.canvas.width + lookBehind));
             this.timer++;
             this.drawBackground();
             this.drawGround();
             for (let ring of this.rings) ring.draw(this.ctx, this.cameraX);
             for (let enemy of this.enemies) enemy.draw(this.ctx, this.cameraX);
+            // Draw platforms
+            for (let platform of this.platforms) {
+                platform.draw(this.ctx, this.cameraX);
+            }
+            // Draw springs
+            for (let spring of this.springs) {
+                spring.draw(this.ctx, this.cameraX);
+            }
+            // Draw goal
+            this.goal.draw(this.ctx, this.cameraX);
             // Draw scattered rings
             for (let ring of this.scatteredRings) {
                 ring.draw(this.ctx, this.cameraX);
@@ -900,6 +1165,11 @@ loop() {
         }
     } else if (this.state === 'gameover') {
         this.drawGameOver();
+        document.getElementById('playerImg').style.display = 'none';
+        this.assets.getAudio('bgMusic').pause();
+        this.assets.getAudio('titleMusic').pause();
+    } else if (this.state === 'levelcomplete') {
+        this.drawLevelComplete();
         document.getElementById('playerImg').style.display = 'none';
         this.assets.getAudio('bgMusic').pause();
         this.assets.getAudio('titleMusic').pause();
