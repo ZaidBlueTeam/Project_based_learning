@@ -255,7 +255,7 @@ class Player {
             }
         }
 
-        // Horizontal bounds
+        // Horizontal bounds (level bounds, not canvas bounds)
         if (this.x < 0) {
             this.x = 0;
             if (this.animation === 'jump') {
@@ -265,8 +265,10 @@ class Player {
                 this.spindashTimer = 0;
             }
         }
-        if (this.x + this.width > canvas.width) {
-            this.x = canvas.width - this.width;
+        // Allow player to move beyond canvas width - camera will follow
+        // Only clamp at level end
+        if (this.x + this.width > game.levelWidth) {
+            this.x = game.levelWidth - this.width;
             if (this.animation === 'jump') {
                 this.animation = 'idle';
                 this.velocityX = 0;
@@ -465,10 +467,22 @@ class Enemy {
     checkCollision(player) {
         if (!this.isAlive) return false;
         
-        return player.x < this.x + this.width &&
-               player.x + player.width > this.x &&
-               player.y < this.y + this.height &&
-               player.y + player.height > this.y;
+        // Shrink hitbox by 5 pixels on each side for more forgiving collision
+        const buffer = 5;
+        const enemyLeft = this.x + buffer;
+        const enemyRight = this.x + this.width - buffer;
+        const enemyTop = this.y + buffer;
+        const enemyBottom = this.y + this.height - buffer;
+        
+        const playerLeft = player.x + buffer;
+        const playerRight = player.x + player.width - buffer;
+        const playerTop = player.y + buffer;
+        const playerBottom = player.y + player.height - buffer;
+        
+        return playerLeft < enemyRight &&
+               playerRight > enemyLeft &&
+               playerTop < enemyBottom &&
+               playerBottom > enemyTop;
     }
     
     destroy() {
@@ -826,6 +840,8 @@ class Game {
         this.canvas = canvas;
         this.ctx = ctx;
         this.assets = assetManager;
+        this.cameraX = 0;
+        this.levelWidth = CONFIG.level.width;  // Bigger level!
 
         this.state = 'title';
 
@@ -1146,11 +1162,11 @@ loop() {
             }
             // Update camera to follow player
             const targetCameraX = this.player.x - this.canvas.width / 2;
-            this.cameraX += (targetCameraX - this.cameraX) * 0.15;  // Faster, more responsive follow
+            this.cameraX += (targetCameraX - this.cameraX) * 0.1;  // Slower follow for wider view
             
-            // Clamp camera with some freedom - allow looking ahead/behind
-            const lookAhead = 200;  // Allow camera to go 200px beyond level start
-            const lookBehind = 100; // Allow camera to go 100px beyond level end
+            // Loosen clamps for more freedom - allow looking further ahead/behind
+            const lookAhead = 400;  // Increased from 200 for more forward view
+            const lookBehind = 300;  // Increased from 100 for more backward view
             this.cameraX = Math.max(-lookAhead, Math.min(this.cameraX, this.levelWidth - this.canvas.width + lookBehind));
             this.timer++;
             this.drawBackground();
