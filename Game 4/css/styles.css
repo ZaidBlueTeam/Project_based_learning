@@ -1,28 +1,78 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent all scrolling */
+    height: 100%;
+    width: 100%;
+}
+
 body {
     font-family: Arial, sans-serif;
     text-align: center;
     background: linear-gradient(45deg, #000000, #333333, #666666); /* Dark gradient for old PC feel */
     background-size: 400% 400%; /* Makes it larger for animation */
     animation: moveBackground 10s ease infinite; /* Slow animation for 3D-like movement */
-    margin: 0;
-    padding: 20px;
     color: white; /* White text for contrast */
-
-
-    @keyframes moveBackground {
-        0% { background-position: 0% 50% }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-}    
+    height: 100vh; /* Full viewport height */
+    padding: 10px;
+    box-sizing: border-box; /* Include padding in height calculation */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
 
 h1 {
     color: #FFD700; /* Gold color for Sonic theme */
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Subtle shadow for depth */
+    margin-bottom: 20px;
+    flex-shrink: 0; /* Don't shrink the title */
+}
+
+#gameContainer {
+    position: relative;
+    display: block;
+    overflow: hidden; /* Prevent any overflow from game elements */
+    max-width: 100%; /* Ensure it doesn't exceed viewport width */
+    max-height: 100%; /* Ensure it doesn't exceed viewport height */
+    flex: 1; /* Take up remaining space */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes moveBackground {
+    0% { background-position: 0% 50% }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+h1 {
+    color: #FFD700; /* Gold color for Sonic theme */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5); /* Subtle shadow for depth */
+    margin-bottom: 20px;
+}
+
+#gameContainer {
+    position: relative;
+    display: block;
+    margin: 0 auto; /* Center the game container */
+    overflow: hidden; /* Prevent any overflow from game elements */
+    max-width: 100%; /* Ensure it doesn't exceed viewport width */
+    max-height: 100%; /* Ensure it doesn't exceed viewport height */
 }
 
 #gameCanvas {
     border: 2px solid #FFD700; /* Gold border to match theme */
     background-color: #87CEEB; /* Sky blue inside canvas */
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); /* Glow effect for 3D feel */
+    display: block; /* Ensure canvas displays as block element */
+}
+
+#playerImg {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+    /* Positioning will be handled by JavaScript */
 }

@@ -118,6 +118,7 @@ class Player {
         this.spindashMode = false;
         this.spindashCharge = 0;
         this.spindashTimer = 0;
+        this.isSpindashing = false; // Flag for maintaining jump animation during spindash
         
         // Store asset manager reference
         this.assets = assetManager;
@@ -206,6 +207,7 @@ class Player {
             this.spindashTimer = 0;
             this.animation = 'jump';
             this.spindashMode = false;
+            this.isSpindashing = true; // Flag to maintain jump animation during spindash
         }
 
         // Apply horizontal velocity
@@ -219,10 +221,10 @@ class Player {
         let onPlatform = false;
         for (let platform of game.platforms) {
             if (platform.checkCollision(this)) {
-                console.log('Landing on platform at y:', platform.y, 'player y will be:', platform.y - this.height);
                 this.y = platform.y - this.height;
                 this.velocityY = 0;
                 this.onGround = true;
+                this.isSpindashing = false; // Clear spindash flag when landing
                 onPlatform = true;
                 break;  // Only land on one platform
             }
@@ -230,11 +232,10 @@ class Player {
         
         // If not on platform, check ground
         if (!onPlatform && this.y + this.height >= ground.y) {
-            console.log('Ground collision: player.y =', this.y, 'player.height =', this.height, 'ground.y =', ground.y);
-            console.log('Condition:', this.y + this.height, '>=', ground.y, '=', this.y + this.height >= ground.y);
             this.y = ground.y - this.height;
             this.velocityY = 0;
             this.onGround = true;
+            this.isSpindashing = false; // Clear spindash flag when landing
             if (this.animation === 'spindash') {
                 this.animation = 'idle';
                 this.spindashMode = false;
@@ -255,23 +256,22 @@ class Player {
             }
         }
 
-        // Horizontal bounds (level bounds, not canvas bounds)
+        // Level boundary collision only - camera handles screen positioning
         if (this.x < 0) {
             this.x = 0;
+            this.velocityX = Math.max(0, this.velocityX);
             if (this.animation === 'jump') {
                 this.animation = 'idle';
-                this.velocityX = 0;
                 this.spindashMode = false;
                 this.spindashTimer = 0;
             }
         }
-        // Allow player to move beyond canvas width - camera will follow
-        // Only clamp at level end
+        // Clamp to level end only - camera will handle screen positioning
         if (this.x + this.width > game.levelWidth) {
             this.x = game.levelWidth - this.width;
+            this.velocityX = Math.min(0, this.velocityX);
             if (this.animation === 'jump') {
                 this.animation = 'idle';
-                this.velocityX = 0;
                 this.spindashMode = false;
                 this.spindashTimer = 0;
             }
@@ -282,11 +282,15 @@ class Player {
             this.animation = 'idle';
             this.spindashMode = false;
             this.spindashTimer = 0;
+            this.isSpindashing = false; // Clear spindash flag when speed drops
         }
 
         // Set animation based on state
-        if (this.spindashMode || this.animation === 'jump') {
+        if (this.spindashMode) {
             // Keep spindash states
+        } else if (this.isSpindashing) {
+            // Keep jump animation during spindash release for enemy killing
+            this.animation = 'jump';
         } else if (!this.onGround) {
             this.animation = 'jump';
         } else if (Math.abs(this.velocityX) > this.maxSpeed * 0.8) {
@@ -314,7 +318,7 @@ class Player {
         }
     }
 
-    draw() {
+    draw(cameraX) {
         const playerImg = document.getElementById('playerImg');
         // Flashing during invincibility (not during hurt)
         if (this.isInvincible && this.hurtTimer === 0 && Math.floor(this.invincibilityTimer / 5) % 2 === 1) {
@@ -338,9 +342,27 @@ class Player {
                 case 'spindash': src = CONFIG.assets.images.sonicSpindash; break;
             }
         }
-        playerImg.src = src;
-        playerImg.style.left = this.x + 'px';
-        playerImg.style.top = this.y + 'px';
+        // Only change src if animation actually changed to avoid interrupting GIF playback
+        if (playerImg.src !== src) {
+            playerImg.src = src;
+        }
+        // Position relative to game container, accounting for camera offset
+        const gameContainer = document.getElementById('gameContainer');
+        const containerRect = gameContainer.getBoundingClientRect();
+        const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
+
+        // Calculate position relative to canvas (world position - camera offset)
+        const relativeX = this.x - cameraX;
+        const relativeY = this.y;
+
+        playerImg.style.position = 'absolute';
+        playerImg.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
+        playerImg.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+        playerImg.style.width = this.width + 'px';
+        playerImg.style.height = this.height + 'px';
+        playerImg.style.pointerEvents = 'none';
+        playerImg.style.zIndex = '10';
+
         if (this.facing < 0) {
             playerImg.style.transform = 'scaleX(-1)';
         } else {
@@ -401,6 +423,7 @@ class Player {
         this.rings = 0;
         this.isDead = false;
         this.hurtTimer = 0;
+        this.isSpindashing = false; // Clear spindash flag on respawn
         this.makeInvincible();
     }
     
@@ -1022,10 +1045,25 @@ drawTitle() {
     }
 
     drawBackground() {
-    // OLD: this.ctx.drawImage(this.backgroundImg, 0, 0, this.canvas.width, this.canvas.height);
-    // NEW:
-    this.ctx.drawImage(this.assets.getImage('background'), -this.cameraX, 0, this.canvas.width, this.canvas.height);
-}
+        const bgImage = this.assets.getImage('background');
+        if (!bgImage) return;
+
+        // Get background image dimensions (assume it's designed for canvas height)
+        const bgWidth = bgImage.width;
+        const bgHeight = this.canvas.height;
+
+        // Calculate how many background tiles we need to cover the level
+        const tilesNeeded = Math.ceil(CONFIG.level.width / bgWidth);
+
+        // Draw looped background tiles
+        for (let i = 0; i < tilesNeeded; i++) {
+            const xPos = i * bgWidth - this.cameraX;
+            // Only draw tiles that are visible on screen (with small buffer)
+            if (xPos > -bgWidth && xPos < this.canvas.width) {
+                this.ctx.drawImage(bgImage, xPos, 0, bgWidth, bgHeight);
+            }
+        }
+    }
 
     drawGround() {
         this.ctx.fillStyle = this.ground.color;
@@ -1085,7 +1123,7 @@ loop() {
             for (let ring of this.rings) ring.draw(this.ctx);
             for (let enemy of this.enemies) enemy.draw(this.ctx);
             this.player.update(this.keys, this.ground, this);
-            this.player.draw();
+            this.player.draw(this.cameraX);
             this.drawHUD();
             document.getElementById('playerImg').style.display = 'block';
         } else if (this.player.isDead) {
@@ -1127,23 +1165,14 @@ loop() {
             for (let enemy of this.enemies) {
                 enemy.update();
                 if (enemy.checkCollision(this.player)) {
-                    console.log('Enemy collision detected!');
-                    console.log('Player position:', this.player.x, this.player.y);
-                    console.log('Enemy position:', enemy.x, enemy.y);
-                    console.log('Player onGround:', this.player.onGround, 'velocityY:', this.player.velocityY);
-                    console.log('Player animation:', this.player.animation, 'velocityX:', this.player.velocityX, 'maxSpeed:', this.player.maxSpeed);
                     const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
-                    const isSpindashing = this.player.animation === 'jump' && Math.abs(this.player.velocityX) > this.player.maxSpeed;
-                    console.log('isJumpingDown:', isJumpingDown, 'isSpindashing:', isSpindashing);
+                    const isSpindashing = this.player.isSpindashing && Math.abs(this.player.velocityX) > this.player.maxSpeed;
                     if (isJumpingDown) {
-                        console.log('Destroying enemy - jumping down');
                         enemy.destroy();
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else if (isSpindashing) {
-                        console.log('Destroying enemy - spindashing');
                         enemy.destroy();
                     } else {
-                        console.log('Taking damage from enemy');
                         this.player.takeDamage(this);
                     }
                 }
@@ -1160,14 +1189,12 @@ loop() {
                     this.scatteredRings.splice(i, 1);  // Remove expired
                 }
             }
-            // Update camera to follow player
+            // Simple camera system - always centers on Sonic
             const targetCameraX = this.player.x - this.canvas.width / 2;
-            this.cameraX += (targetCameraX - this.cameraX) * 0.1;  // Slower follow for wider view
-            
-            // Loosen clamps for more freedom - allow looking further ahead/behind
-            const lookAhead = 400;  // Increased from 200 for more forward view
-            const lookBehind = 300;  // Increased from 100 for more backward view
-            this.cameraX = Math.max(-lookAhead, Math.min(this.cameraX, this.levelWidth - this.canvas.width + lookBehind));
+            this.cameraX = targetCameraX;
+
+            // Clamp camera to level bounds to prevent showing area outside the level
+            this.cameraX = Math.max(0, Math.min(this.cameraX, this.levelWidth - this.canvas.width));
             this.timer++;
             this.drawBackground();
             this.drawGround();
@@ -1187,7 +1214,7 @@ loop() {
             for (let ring of this.scatteredRings) {
                 ring.draw(this.ctx, this.cameraX);
             }
-            this.player.draw();
+            this.player.draw(this.cameraX);
             this.drawHUD();
             const bgMusic = this.assets.getAudio('bgMusic');
             if (bgMusic.paused) bgMusic.play();
