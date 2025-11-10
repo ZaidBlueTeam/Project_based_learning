@@ -90,6 +90,98 @@ const CONFIG = {
             spindashSound: 'audio/spindash.wav',
             springSound: 'audio/spring.wav'
         }
+    },
+
+    levels: {
+        'Test Zone Act 1': {
+            next: 'Test Zone Act 2',
+            enemies: [
+                { x: 400, y: 425 },
+                { x: 700, y: 425 },
+                { x: 1200, y: 425 },
+                { x: 1600, y: 425 }
+            ],
+            rings: [
+                { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 },
+                { x: 500, y: 450 }, { x: 550, y: 450 },
+                { x: 600, y: 350 }, { x: 1000, y: 420 }, { x: 1100, y: 380 },
+                { x: 1500, y: 440 }, { x: 1600, y: 400 }
+            ],
+            platforms: [
+                { x: 800, y: 450, width: 150 },
+                { x: 1100, y: 400, width: 100 },
+                { x: 1400, y: 350, width: 120 },
+                { x: 1800, y: 300, width: 200 },
+                { x: 2200, y: 400, width: 150 },
+                { x: 2500, y: 350, width: 100 },
+                { x: 2800, y: 450, width: 120 },
+                { x: 3200, y: 300, width: 180 }
+            ],
+            springs: [
+                { x: 850, y: 430 },
+                { x: 1450, y: 330 },
+                { x: 2850, y: 430 }
+            ],
+            goal: { x: 3800, y: 425 }
+        },
+        'Test Zone Act 2': {
+            next: 'Test Zone Act 3',
+            enemies: [
+                { x: 500, y: 425 }, { x: 800, y: 425 }, { x: 1100, y: 425 },
+                { x: 1400, y: 425 }, { x: 1700, y: 425 }, { x: 2000, y: 425 }
+            ],
+            rings: [
+                { x: 300, y: 400 }, { x: 350, y: 400 }, { x: 400, y: 400 },
+                { x: 600, y: 450 }, { x: 650, y: 450 }, { x: 700, y: 350 },
+                { x: 900, y: 420 }, { x: 1000, y: 380 }, { x: 1200, y: 440 },
+                { x: 1300, y: 400 }, { x: 1500, y: 350 }, { x: 1600, y: 420 },
+                { x: 1800, y: 380 }, { x: 1900, y: 440 }, { x: 2100, y: 400 }
+            ],
+            platforms: [
+                { x: 600, y: 450, width: 200 }, { x: 900, y: 400, width: 150 },
+                { x: 1200, y: 350, width: 180 }, { x: 1500, y: 300, width: 220 },
+                { x: 1800, y: 400, width: 160 }, { x: 2100, y: 350, width: 140 },
+                { x: 2400, y: 450, width: 190 }, { x: 2700, y: 300, width: 200 },
+                { x: 3000, y: 400, width: 170 }, { x: 3300, y: 350, width: 150 }
+            ],
+            springs: [
+                { x: 650, y: 430 }, { x: 1250, y: 330 }, { x: 1850, y: 380 },
+                { x: 2450, y: 430 }, { x: 3050, y: 380 }
+            ],
+            goal: { x: 3800, y: 425 }
+        },
+        'Test Zone Act 3': {
+            next: null, // Final level
+            enemies: [
+                { x: 400, y: 425 }, { x: 600, y: 425 }, { x: 800, y: 425 },
+                { x: 1000, y: 425 }, { x: 1200, y: 425 }, { x: 1400, y: 425 },
+                { x: 1600, y: 425 }, { x: 1800, y: 425 }, { x: 2000, y: 425 },
+                { x: 2200, y: 425 }, { x: 2400, y: 425 }, { x: 2600, y: 425 }
+            ],
+            rings: [
+                { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 },
+                { x: 450, y: 450 }, { x: 500, y: 450 }, { x: 550, y: 350 },
+                { x: 650, y: 420 }, { x: 700, y: 380 }, { x: 800, y: 440 },
+                { x: 850, y: 400 }, { x: 950, y: 350 }, { x: 1000, y: 420 },
+                { x: 1100, y: 380 }, { x: 1200, y: 440 }, { x: 1250, y: 400 },
+                { x: 1350, y: 350 }, { x: 1400, y: 420 }, { x: 1500, y: 380 },
+                { x: 1600, y: 440 }, { x: 1650, y: 400 }, { x: 1750, y: 350 }
+            ],
+            platforms: [
+                { x: 500, y: 450, width: 250 }, { x: 800, y: 400, width: 200 },
+                { x: 1100, y: 350, width: 220 }, { x: 1400, y: 300, width: 250 },
+                { x: 1700, y: 400, width: 180 }, { x: 2000, y: 350, width: 160 },
+                { x: 2300, y: 450, width: 210 }, { x: 2600, y: 300, width: 230 },
+                { x: 2900, y: 400, width: 190 }, { x: 3200, y: 350, width: 170 },
+                { x: 3500, y: 450, width: 200 }
+            ],
+            springs: [
+                { x: 550, y: 430 }, { x: 1150, y: 330 }, { x: 1450, y: 280 },
+                { x: 1750, y: 380 }, { x: 2350, y: 430 }, { x: 2650, y: 280 },
+                { x: 2950, y: 380 }, { x: 3250, y: 330 }, { x: 3550, y: 430 }
+            ],
+            goal: { x: 3800, y: 425 }
+        }
     }
 };
 
@@ -839,6 +931,27 @@ class Game {
         this.ctx.font = '24px Arial';
         this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 40);
     }
+
+    drawZone() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '48px Arial';
+        this.ctx.fillText(this.currentLevel, this.canvas.width / 2 - 150, this.canvas.height / 2);
+    }
+
+    drawGameComplete() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'gold';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.fillText('GAME COMPLETE!', this.canvas.width / 2 - 200, this.canvas.height / 2 - 60);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, this.canvas.width / 2 - 100, this.canvas.height / 2);
+        this.ctx.fillText('Congratulations!', this.canvas.width / 2 - 100, this.canvas.height / 2 + 40);
+        this.ctx.fillText('Press R to Play Again', this.canvas.width / 2 - 100, this.canvas.height / 2 + 80);
+    }
     
     drawLevelComplete() {
         this.ctx.fillStyle = 'black';
@@ -911,80 +1024,89 @@ class Game {
         }
     }
 
-    constructor(canvas, ctx, assetManager) {
+    loadLevelData(levelName) {
+        const levelData = CONFIG.levels[levelName];
+        if (!levelData) return;
+
+        // Create enemies
+        this.enemies = levelData.enemies.map(e => 
+            new Enemy(e.x, this.ground.y - CONFIG.enemy.height)
+        );
+
+        // Create rings
+        this.rings = levelData.rings.map(r => new Ring(r.x, r.y));
+
+        // Create platforms
+        this.platforms = levelData.platforms.map(p => 
+            new Platform(p.x, p.y, p.width)
+        );
+
+        // Create springs
+        this.springs = levelData.springs.map(s => new Spring(s.x, s.y));
+
+        // Create goal
+        this.goal = new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height);
+    }
+
+    nextLevel() {
+        const nextLevel = CONFIG.levels[this.currentLevel]?.next;
+        if (nextLevel) {
+            // Save current progress
+            this.saveProgress(this.currentLevel);
+            
+            // Load next level
+            this.currentLevel = nextLevel;
+            this.loadLevelData(nextLevel);
+            this.loadProgress(nextLevel);
+            
+            // Reset level state
+            this.timer = 0;
+            this.scatteredRings = [];
+            this.cameraX = 0;
+            this.state = 'zone';
+            setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
+            
+            // Restart background music
+            const bgMusic = this.assets.getAudio('bgMusic');
+            bgMusic.currentTime = 0;
+            bgMusic.play();
+        } else {
+            // Game complete!
+            this.state = 'gamecomplete';
+        }
+    }
+
+    constructor(canvas, ctx, assetManager, currentLevel = 'Test Zone Act 1') {
         this.canvas = canvas;
         this.ctx = ctx;
         this.assets = assetManager;
+        this.currentLevel = currentLevel;
         this.cameraX = 0;
-        this.levelWidth = CONFIG.level.width;  // Bigger level!
+        this.levelWidth = CONFIG.level.width;
 
         this.state = 'title';
-        this.score = 0;  // Initialize score
+        this.score = 0;
 
         this.player = new Player(assetManager);
         this.ground = {
             x: 0,
             y: canvas.height - CONFIG.ground.height,
-            width: CONFIG.level.width,  // Level width
+            width: CONFIG.level.width,
             height: CONFIG.ground.height,
             color: CONFIG.ground.color,
         };
 
         this.keys = {};
-
-        // Create enemies across the level
-        this.enemies = [
-            new Enemy(400, this.ground.y - CONFIG.enemy.height),
-            new Enemy(700, this.ground.y - CONFIG.enemy.height),
-            new Enemy(1200, this.ground.y - CONFIG.enemy.height),
-            new Enemy(1600, this.ground.y - CONFIG.enemy.height)
-        ];
-        
-        // Create rings across the level
-        this.rings = [
-            new Ring(250, this.ground.y - 100),
-            new Ring(300, this.ground.y - 100),
-            new Ring(350, this.ground.y - 100),
-            new Ring(500, this.ground.y - 50),
-            new Ring(550, this.ground.y - 50),
-            new Ring(600, this.ground.y - 150),
-            new Ring(1000, this.ground.y - 80),
-            new Ring(1100, this.ground.y - 120),
-            new Ring(1500, this.ground.y - 60),
-            new Ring(1600, this.ground.y - 100)
-        ];
-
         this.setupInputHandlers();
         this.deathBlackScreenTimer = 0;
         this.timer = 0;
         this.scatteredRings = [];
-        this.cameraX = 0;
-        this.levelWidth = CONFIG.level.width;  // Bigger level!
 
-        // Create platforms across the level
-        this.platforms = [
-            new Platform(800, 450, 150, 20),   // Floating platform
-            new Platform(1100, 400, 100, 20),  // Another one
-            new Platform(1400, 350, 120, 20),  // Higher platform
-            new Platform(1800, 300, 200, 20),  // Big platform
-            new Platform(2200, 400, 150, 20),  // More platforms
-            new Platform(2500, 350, 100, 20),
-            new Platform(2800, 450, 120, 20),
-            new Platform(3200, 300, 180, 20)
-        ];
+        // Load level data
+        this.loadLevelData(currentLevel);
         
-        // Create springs on platforms
-        this.springs = [
-            new Spring(850, 430),   // On first platform
-            new Spring(1450, 330),  // On higher platform
-            new Spring(2850, 430)   // Near end
-        ];
-        
-        // Create goal at the end
-        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
-
         // Load saved progress
-        this.loadProgress('Test Zone Act 1');
+        this.loadProgress(currentLevel);
     }
 
     setupInputHandlers() {
@@ -995,10 +1117,13 @@ class Game {
                 setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
             }
             if (this.state === 'gameover' && (e.key === 'r' || e.key === 'R')) {
-                this.restartGame();
+                this.restartGame(); // Full game restart
             }
             if (this.state === 'levelcomplete' && (e.key === 'r' || e.key === 'R')) {
-                this.restartGame();
+                this.restartLevel(); // Level restart (keep progress)
+            }
+            if (this.state === 'gamecomplete' && (e.key === 'r' || e.key === 'R')) {
+                this.restartGame(); // Full game restart
             }
         });
 
@@ -1041,46 +1166,31 @@ class Game {
     }
 
     restartLevel() {
+        // Keep current lives and score
         const currentLives = this.player.lives;
+        const currentScore = this.score;
+        
+        // Reset player and level state
         this.player = new Player(this.assets);
         this.player.lives = currentLives;
-        this.enemies = [
-            new Enemy(400, this.ground.y - CONFIG.enemy.height),
-            new Enemy(700, this.ground.y - CONFIG.enemy.height)
-        ];
-        this.rings = [
-            new Ring(250, this.ground.y - 100),
-            new Ring(300, this.ground.y - 100),
-            new Ring(350, this.ground.y - 100),
-            new Ring(500, this.ground.y - 50),
-            new Ring(550, this.ground.y - 50),
-            new Ring(600, this.ground.y - 150)
-        ];
-        this.platforms = [
-            new Platform(800, this.ground.y - 100, 200),
-            new Platform(1200, this.ground.y - 150, 150),
-            new Platform(1600, this.ground.y - 200, 200),
-            new Platform(2000, this.ground.y - 100, 150),
-            new Platform(2400, this.ground.y - 150, 200),
-            new Platform(2800, this.ground.y - 200, 150),
-            new Platform(3200, this.ground.y - 100, 200)
-        ];
-        this.springs = [
-            new Spring(850, this.ground.y - 100 - CONFIG.spring.height),
-            new Spring(1250, this.ground.y - 150 - CONFIG.spring.height),
-            new Spring(2050, this.ground.y - 100 - CONFIG.spring.height),
-            new Spring(2850, this.ground.y - 200 - CONFIG.spring.height)
-        ];
-        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
+        this.score = currentScore;
+        
+        // Reload level data
+        this.loadLevelData(this.currentLevel);
+        
+        // Reset timers and state
         this.deathBlackScreenTimer = 0;
         this.timer = 0;
         this.scatteredRings = [];
         this.cameraX = 0;
+        
         // Restart background music
         const bgMusic = this.assets.getAudio('bgMusic');
         bgMusic.currentTime = 0;
         bgMusic.play();
+        
         // Stay in 'game' state
+        this.state = 'game';
     }
 
 drawTitle() {
@@ -1219,15 +1329,16 @@ loop() {
             // Update goal
             this.goal.update();
             if (this.goal.checkCollision(this.player)) {
-                // Calculate level score (time bonus + ring bonus)
-                const timeBonus = Math.max(0, 50000 - this.timer * 10); // Faster completion = more points
-                const ringBonus = this.player.rings * 100; // 100 points per ring
+                // Calculate level score
+                const timeBonus = Math.max(0, 50000 - this.timer * 10);
+                const ringBonus = this.player.rings * 100;
                 this.score += timeBonus + ringBonus;
                 
-                // Save progress before showing completion screen
-                this.saveProgress('Test Zone Act 1');
+                // Save progress
+                this.saveProgress(this.currentLevel);
                 
-                this.state = 'levelcomplete';
+                // Advance to next level or show completion
+                this.nextLevel();
             }
             // Update and check enemies
             for (let enemy of this.enemies) {
@@ -1295,6 +1406,11 @@ loop() {
         this.assets.getAudio('titleMusic').pause();
     } else if (this.state === 'levelcomplete') {
         this.drawLevelComplete();
+        document.getElementById('playerImg').style.display = 'none';
+        this.assets.getAudio('bgMusic').pause();
+        this.assets.getAudio('titleMusic').pause();
+    } else if (this.state === 'gamecomplete') {
+        this.drawGameComplete();
         document.getElementById('playerImg').style.display = 'none';
         this.assets.getAudio('bgMusic').pause();
         this.assets.getAudio('titleMusic').pause();

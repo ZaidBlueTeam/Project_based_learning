@@ -12,6 +12,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.1.5",
+    "joi": "^17.9.2",
     "mssql": "^12.1.0"
   }
 }
