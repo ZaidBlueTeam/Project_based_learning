@@ -1,45 +1,205 @@
-# Sonic-Themed 2D Platformer Game
+# 🎮 Sonic Platformer with Database Persistence
 
-Welcome to the Sonic-themed 2D platformer game project! This README file provides an overview of the project, setup instructions, and additional information about the development process.
+A complete Sonic-themed 2D platformer game with **SQL Server database** for saving progress across levels!
 
-## Project Structure
+## 🚀 Quick Start
 
-The project consists of the following files and directories:
+### 1. Set Up SQL Server Database
+```sql
+-- Run this in SQL Server Management Studio
+CREATE DATABASE sonic_game;
+USE sonic_game;
 
-- `index.html`: The main HTML document that sets up the structure of the game interface.
-- `css/styles.css`: Contains the styles for the website, defining layout, colors, fonts, and other visual aspects.
-- `js/game.js`: The main game logic, including classes and functions for game mechanics, player movement, collision detection, and rendering.
-- `js/utils.js`: Utility functions that support the game logic, such as random number generation and timing functions.
+CREATE TABLE player_progress (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    level_name VARCHAR(50) UNIQUE NOT NULL,
+    lives INT DEFAULT 3,
+    score INT DEFAULT 0,
+    last_updated DATETIME DEFAULT GETDATE()
+);
 
-## Getting Started
+INSERT INTO player_progress (level_name, lives, score) VALUES
+('Test Zone Act 1', 3, 0),
+('Test Zone Act 2', 3, 0),
+('Test Zone Act 3', 3, 0);
+```
 
-To get started with the Sonic-themed 2D platformer game, follow these steps:
+### 2. Configure Database Connection
+Edit `sonic-backend/server.js`:
+```javascript
+const config = {
+    user: 'sa',  // Your SQL Server username
+    password: 'YourPassword123!',  // Your SQL Server password
+    server: 'localhost',
+    database: 'sonic_game',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+```
 
-1. **Clone the Repository**: 
-   Clone this repository to your local machine using the following command:
-   ```
-   git clone <repository-url>
-   ```
+### 3. Start the Backend
+```bash
+cd sonic-backend
+npm install
+node server.js
+```
 
-2. **Open the Project**: 
-   Navigate to the project directory:
-   ```
-   cd sonic-platformer-game
-   ```
+### 4. Play the Game
+Open `index.html` in your browser!
 
-3. **Open `index.html`**: 
-   Open the `index.html` file in your web browser to start playing the game.
+## 🛠️ Automated Setup (Windows)
 
-## Playing the Game
+For Windows users, run the automated setup script:
 
-- Use the arrow keys to move Sonic left and right.
-- Press the spacebar to jump.
-- Collect rings and avoid enemies to score points.
+```bash
+setup.bat
+```
 
-## Development
+This script will:
+- Install backend dependencies
+- Display the database setup SQL
+- Start the backend server
+- Open the game in your browser
 
-This project is built using HTML, CSS, and JavaScript. Feel free to modify the code and contribute to the development of the game. 
+## 📋 Manual Setup Steps
 
-## Acknowledgments
+## 📊 Database Features
 
-Special thanks to the Sonic franchise for inspiring this project. Enjoy playing and developing the game!
+### **What Gets Saved:**
+- ✅ **Lives** - Carry over between sessions
+- ✅ **Score** - Persistent high scores
+- ❌ **Rings** - Reset each level (as requested)
+
+### **API Endpoints:**
+- `GET /api/progress/:level` - Load progress
+- `POST /api/progress` - Save progress
+
+### **Database Schema:**
+```sql
+player_progress table:
+- id (auto-increment)
+- level_name (unique)
+- lives (int, default 3)
+- score (int, default 0)
+- last_updated (datetime)
+```
+
+## 🎯 Game Features
+
+### **Complete Sonic Experience:**
+- 🏃‍♂️ **Full Movement**: Walk, run, jump, spindash
+- 🎵 **Audio**: Background music, sound effects
+- 🎨 **Animations**: Idle, walk, run, jump, hurt, death
+- 💍 **Collectibles**: Rings with invincibility
+- 👾 **Enemies**: AI patrol with collision detection
+- 🏆 **Scoring**: Time bonus + ring bonus system
+- 💾 **Persistence**: Lives & score saved to database
+
+### **Technical Highlights:**
+- 🎮 **60 FPS** smooth gameplay
+- 📱 **Responsive** design
+- 🔒 **No browser scrolling** interference
+- 🎨 **Looped background** tiles
+- 📊 **Real-time HUD** display
+
+## 🛠️ Development Setup
+
+### **Prerequisites:**
+- SQL Server (Express or Developer Edition)
+- Node.js & npm
+- Modern web browser
+
+### **Project Structure:**
+```
+Game 4/
+├── index.html              # Main game page
+├── css/styles.css          # Game styling
+├── js/
+│   ├── game.js            # Core game logic
+│   └── utils.js           # Helper functions
+├── sonic-backend/          # Database API
+│   ├── server.js          # Express server
+│   ├── setup_database.sql # DB schema
+│   └── package.json       # Dependencies
+└── images/                # Game assets
+    ├── sonic_*.gif        # Character sprites
+    ├── green_hill.gif     # Background
+    └── TitleScreen.png    # Title screen
+```
+
+## 🎮 How to Play
+
+### **Controls:**
+- `A` - Move left
+- `D` - Move right
+- `SPACE` - Jump
+- `S` - Crouch (hold for spindash charge)
+
+### **Objective:**
+- Collect rings for points and invincibility
+- Avoid or defeat enemies
+- Reach the goal post to complete the level
+- Fast completion = higher score!
+
+### **Scoring System:**
+- **Time Bonus**: 50,000 - (frames × 10)
+- **Ring Bonus**: Rings collected × 100
+- **Total Score**: Displayed on HUD and saved
+
+## 🔧 Customization
+
+### **Add New Levels:**
+1. Add entry to database: `INSERT INTO player_progress (level_name) VALUES ('New Level');`
+2. Update game.js level loading logic
+3. Modify enemy/platform placement
+
+### **Adjust Scoring:**
+Edit the scoring calculation in `game.js`:
+```javascript
+const timeBonus = Math.max(0, 50000 - this.timer * 10);
+const ringBonus = this.player.rings * 100;
+```
+
+### **Database Connection:**
+Update connection string in `sonic-backend/server.js` for different SQL Server instances.
+
+## 🚀 Future Enhancements
+
+- [ ] **Multiple Levels**: Test Zone Act 2 & Act 3
+- [ ] **User Accounts**: Login system
+- [ ] **Leaderboards**: Global high scores
+- [ ] **Power-ups**: Shields, speed shoes
+- [ ] **Boss Battles**: Final level encounters
+
+## 📝 Learning Outcomes
+
+This project demonstrates:
+- **Full-Stack Development**: Frontend + Backend + Database
+- **Game Development**: Physics, collision, animation systems
+- **Database Integration**: CRUD operations with SQL Server
+- **RESTful APIs**: Express.js server design
+- **Modern JavaScript**: ES6+ features, async/await
+- **Web Standards**: HTML5 Canvas, CSS Grid/Flexbox
+
+## 🐛 Troubleshooting
+
+### **Backend Won't Start:**
+- Check SQL Server is running
+- Verify connection credentials
+- Ensure database exists
+
+### **Progress Won't Save:**
+- Check browser console for errors
+- Verify backend is running on port 3000
+- Check network tab for failed requests
+
+### **Game Performance Issues:**
+- Close other browser tabs
+- Check browser developer tools for memory usage
+- Ensure graphics drivers are up to date
+
+---
+
+**Enjoy your Sonic platformer adventure! 🦔⚡**

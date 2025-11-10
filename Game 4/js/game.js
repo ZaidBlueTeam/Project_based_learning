@@ -845,12 +845,22 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'gold';
         this.ctx.font = 'bold 48px Arial';
-        this.ctx.fillText('LEVEL COMPLETE!', this.canvas.width / 2 - 200, this.canvas.height / 2 - 40);
+        this.ctx.fillText('LEVEL COMPLETE!', this.canvas.width / 2 - 200, this.canvas.height / 2 - 60);
         this.ctx.fillStyle = 'white';
         this.ctx.font = '24px Arial';
-        this.ctx.fillText(`Time: ${this.formatTime(this.timer)}`, this.canvas.width / 2 - 80, this.canvas.height / 2 + 20);
-        this.ctx.fillText(`Rings: ${this.player.rings}`, this.canvas.width / 2 - 60, this.canvas.height / 2 + 50);
-        this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 80);
+        this.ctx.fillText(`Time: ${this.formatTime(this.timer)}`, this.canvas.width / 2 - 80, this.canvas.height / 2 - 10);
+        this.ctx.fillText(`Rings: ${this.player.rings}`, this.canvas.width / 2 - 60, this.canvas.height / 2 + 20);
+        
+        // Show score breakdown
+        const timeBonus = Math.max(0, 50000 - this.timer * 10);
+        const ringBonus = this.player.rings * 100;
+        this.ctx.fillText(`Time Bonus: ${timeBonus.toLocaleString()}`, this.canvas.width / 2 - 120, this.canvas.height / 2 + 50);
+        this.ctx.fillText(`Ring Bonus: ${ringBonus.toLocaleString()}`, this.canvas.width / 2 - 110, this.canvas.height / 2 + 80);
+        this.ctx.fillStyle = 'yellow';
+        this.ctx.fillText(`Total Score: ${this.score.toLocaleString()}`, this.canvas.width / 2 - 100, this.canvas.height / 2 + 110);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 140);
     }
     
     formatTime(frames) {
@@ -859,6 +869,48 @@ class Game {
         const seconds = totalSeconds % 60;
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
+
+    // Database integration methods
+    async loadProgress(levelName) {
+        try {
+            const response = await fetch(`http://localhost:3000/api/progress/${encodeURIComponent(levelName)}`);
+            if (response.ok) {
+                const progress = await response.json();
+                this.player.lives = progress.lives;
+                this.score = progress.score || 0;
+                console.log(`📥 Loaded progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
+            } else {
+                console.log(`📝 No saved progress for ${levelName}, using defaults`);
+                this.player.lives = 3;
+                this.score = 0;
+            }
+        } catch (error) {
+            console.error('❌ Failed to load progress:', error);
+            // Use defaults if loading fails
+            this.player.lives = 3;
+            this.score = 0;
+        }
+    }
+
+    async saveProgress(levelName) {
+        try {
+            const response = await fetch('http://localhost:3000/api/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    level_name: levelName,
+                    lives: this.player.lives,
+                    score: this.score
+                })
+            });
+            if (response.ok) {
+                console.log(`💾 Saved progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
+            }
+        } catch (error) {
+            console.error('❌ Failed to save progress:', error);
+        }
+    }
+
     constructor(canvas, ctx, assetManager) {
         this.canvas = canvas;
         this.ctx = ctx;
@@ -867,6 +919,7 @@ class Game {
         this.levelWidth = CONFIG.level.width;  // Bigger level!
 
         this.state = 'title';
+        this.score = 0;  // Initialize score
 
         this.player = new Player(assetManager);
         this.ground = {
@@ -929,6 +982,9 @@ class Game {
         
         // Create goal at the end
         this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
+
+        // Load saved progress
+        this.loadProgress('Test Zone Act 1');
     }
 
     setupInputHandlers() {
@@ -1087,6 +1143,10 @@ drawTitle() {
         this.ctx.strokeText('RINGS ' + this.player.rings.toString().padStart(2, '0'), 20, 70);
         this.ctx.fillText('RINGS ' + this.player.rings.toString().padStart(2, '0'), 20, 70);
         
+        // SCORE
+        this.ctx.strokeText('SCORE ' + this.score.toString().padStart(8, '0'), 20, 100);
+        this.ctx.fillText('SCORE ' + this.score.toString().padStart(8, '0'), 20, 100);
+        
         // LIVES (icon and count at bottom left)
         this.ctx.drawImage(this.assets.getImage('sonicIdle'), 20, this.canvas.height - 50, 30, 30);
         this.ctx.strokeText('x' + this.player.lives, 60, this.canvas.height - 30);
@@ -1159,6 +1219,14 @@ loop() {
             // Update goal
             this.goal.update();
             if (this.goal.checkCollision(this.player)) {
+                // Calculate level score (time bonus + ring bonus)
+                const timeBonus = Math.max(0, 50000 - this.timer * 10); // Faster completion = more points
+                const ringBonus = this.player.rings * 100; // 100 points per ring
+                this.score += timeBonus + ringBonus;
+                
+                // Save progress before showing completion screen
+                this.saveProgress('Test Zone Act 1');
+                
                 this.state = 'levelcomplete';
             }
             // Update and check enemies
