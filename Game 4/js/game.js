@@ -23,7 +23,7 @@ const CONFIG = {
     },
 
     game: {
-        zoneDisplayTimer: 2005
+        zoneDisplayTimer: 3000  // Increased from 2005 to 3000ms for better visibility
     },
 
     enemy: {
@@ -152,12 +152,8 @@ const CONFIG = {
         },
         'Test Zone Act 3': {
             next: null, // Final level
-            enemies: [
-                { x: 400, y: 425 }, { x: 600, y: 425 }, { x: 800, y: 425 },
-                { x: 1000, y: 425 }, { x: 1200, y: 425 }, { x: 1400, y: 425 },
-                { x: 1600, y: 425 }, { x: 1800, y: 425 }, { x: 2000, y: 425 },
-                { x: 2200, y: 425 }, { x: 2400, y: 425 }, { x: 2600, y: 425 }
-            ],
+            enemies: [], // No regular enemies in Act 3
+            boss: { x: 3200, y: 350 }, // Eggman boss
             rings: [
                 { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 },
                 { x: 450, y: 450 }, { x: 500, y: 450 }, { x: 550, y: 350 },
@@ -606,6 +602,203 @@ class Enemy {
 }
 
 // ============================
+// BOSS CLASS (Eggman)
+// ============================
+class Boss {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 80;  // Bigger than regular enemies
+        this.height = 60;
+        this.speed = 1.5; // Slower than regular enemies
+        
+        // Movement
+        this.startX = x;
+        this.direction = 1;  // 1 = right, -1 = left
+        this.patrolDistance = 300; // Moves further than regular enemies
+        
+        // State
+        this.isAlive = true;
+        this.health = 8; // Takes 8 hits to defeat
+        
+        // Attack
+        this.shootTimer = 0;
+        this.shootCooldown = 180; // Shoot every 3 seconds (60fps)
+        this.projectiles = [];
+        
+        // Animation
+        this.animationFrame = 0;
+    }
+    
+    update() {
+        if (!this.isAlive) return;
+        
+        // Patrol back and forth
+        this.x += this.speed * this.direction;
+        
+        // Turn around at patrol boundaries
+        if (this.x > this.startX + this.patrolDistance) {
+            this.direction = -1;
+        } else if (this.x < this.startX - this.patrolDistance) {
+            this.direction = 1;
+        }
+        
+        // Shooting logic
+        this.shootTimer++;
+        if (this.shootTimer >= this.shootCooldown) {
+            this.shoot();
+            this.shootTimer = 0;
+        }
+        
+        // Update projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const projectile = this.projectiles[i];
+            projectile.update();
+            
+            // Remove projectiles that are off screen or inactive
+            if (projectile.x < -100 || projectile.x > 4200 || !projectile.active) {
+                this.projectiles.splice(i, 1);
+            }
+        }
+        
+        // Animation
+        this.animationFrame++;
+    }
+    
+    shoot() {
+        // Shoot projectile towards player (simplified - shoots downward)
+        const projectile = new BossProjectile(this.x + this.width / 2, this.y + this.height, 0, 3);
+        this.projectiles.push(projectile);
+    }
+    
+    draw(ctx, cameraX) {
+        if (!this.isAlive) return;
+        
+        // Draw Eggman's vehicle as a gray egg shape
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Draw red details (Eggman's face area)
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 20, 15);
+        ctx.fillRect(this.x - cameraX + 50, this.y + 10, 20, 15);
+        
+        // Draw eyes
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x - cameraX + 15, this.y + 15, 6, 6);
+        ctx.fillRect(this.x - cameraX + 55, this.y + 15, 6, 6);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x - cameraX + 17, this.y + 17, 3, 3);
+        ctx.fillRect(this.x - cameraX + 57, this.y + 17, 3, 3);
+        
+        // Draw health bar
+        const barWidth = 60;
+        const barHeight = 6;
+        const barX = this.x - cameraX + 10;
+        const barY = this.y - 15;
+        
+        // Background
+        ctx.fillStyle = 'black';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health
+        ctx.fillStyle = 'red';
+        const healthWidth = (this.health / 8) * barWidth;
+        ctx.fillRect(barX, barY, healthWidth, barHeight);
+        
+        // Border
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+        
+        // Draw projectiles
+        for (const projectile of this.projectiles) {
+            if (projectile.active) {
+                projectile.draw(ctx, cameraX);
+            }
+        }
+    }
+    
+    checkCollision(player) {
+        if (!this.isAlive) return false;
+        
+        const bossLeft = this.x;
+        const bossRight = this.x + this.width;
+        const bossTop = this.y;
+        const bossBottom = this.y + this.height;
+        
+        const playerLeft = player.x;
+        const playerRight = player.x + player.width;
+        const playerTop = player.y;
+        const playerBottom = player.y + player.height;
+        
+        return playerLeft < bossRight &&
+               playerRight > bossLeft &&
+               playerTop < bossBottom &&
+               playerBottom > bossTop;
+    }
+    
+    takeDamage() {
+        this.health--;
+        if (this.health <= 0) {
+            this.destroy();
+        }
+    }
+    
+    destroy() {
+        this.isAlive = false;
+        // Create explosion effect or victory animation
+    }
+}
+
+// ============================
+// BOSS PROJECTILE CLASS
+// ============================
+class BossProjectile {
+    constructor(x, y, velocityX, velocityY) {
+        this.x = x;
+        this.y = y;
+        this.velocityX = velocityX;
+        this.velocityY = velocityY;
+        this.width = 8;
+        this.height = 8;
+        this.active = true;
+    }
+    
+    update() {
+        if (!this.active) return;
+        
+        this.x += this.velocityX;
+        this.y += this.velocityY;
+    }
+    
+    draw(ctx, cameraX) {
+        if (!this.active) return;
+        
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Add glow effect
+        ctx.strokeStyle = 'orange';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x - cameraX - 1, this.y - 1, this.width + 2, this.height + 2);
+    }
+    
+    checkCollision(player) {
+        if (!this.active) return false;
+        
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+    
+    destroy() {
+        this.active = false;
+    }
+}
+
+// ============================
 // RING CLASS
 // ============================
 class Ring {
@@ -937,7 +1130,21 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'white';
         this.ctx.font = '48px Arial';
-        this.ctx.fillText(this.currentLevel, this.canvas.width / 2 - 150, this.canvas.height / 2);
+        // Show "TEST ZONE" for initial start, then show act numbers for transitions
+        let displayText;
+        if (this.currentLevel === 'Test Zone Act 1' && this.state === 'zone' && !this.hasShownInitialZone) {
+            displayText = 'TEST ZONE';
+        } else {
+            // Extract act number from level name
+            const actMatch = this.currentLevel.match(/Act (\d+)/);
+            displayText = actMatch ? `ACT ${actMatch[1]}` : this.currentLevel;
+        }
+        this.ctx.fillText(displayText, this.canvas.width / 2 - 100, this.canvas.height / 2);
+        
+        // Mark that we've shown the initial zone screen
+        if (this.currentLevel === 'Test Zone Act 1' && !this.hasShownInitialZone) {
+            this.hasShownInitialZone = true;
+        }
     }
 
     drawGameComplete() {
@@ -991,14 +1198,19 @@ class Game {
                 const progress = await response.json();
                 this.player.lives = progress.lives;
                 this.score = progress.score || 0;
+                this.serverAvailable = true; // Server is available
                 console.log(`📥 Loaded progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
             } else {
                 console.log(`📝 No saved progress for ${levelName}, using defaults`);
                 this.player.lives = 3;
                 this.score = 0;
+                this.serverAvailable = true; // Server responded, just no data
             }
         } catch (error) {
-            console.error('❌ Failed to load progress:', error);
+            console.warn('⚠️  Server not available - playing in offline mode');
+            console.log('💡 To enable progress saving, start the backend server:');
+            console.log('   cd sonic-backend && npm install && node server.js');
+            this.serverAvailable = false; // Server is not available
             // Use defaults if loading fails
             this.player.lives = 3;
             this.score = 0;
@@ -1020,7 +1232,8 @@ class Game {
                 console.log(`💾 Saved progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
             }
         } catch (error) {
-            console.error('❌ Failed to save progress:', error);
+            console.warn('⚠️  Server not available - progress not saved');
+            console.log('💡 Start the backend server to enable progress saving');
         }
     }
 
@@ -1032,6 +1245,9 @@ class Game {
         this.enemies = levelData.enemies.map(e => 
             new Enemy(e.x, this.ground.y - CONFIG.enemy.height)
         );
+
+        // Create boss (if level has one)
+        this.boss = levelData.boss ? new Boss(levelData.boss.x, levelData.boss.y) : null;
 
         // Create rings
         this.rings = levelData.rings.map(r => new Ring(r.x, r.y));
@@ -1058,6 +1274,14 @@ class Game {
             this.currentLevel = nextLevel;
             this.loadLevelData(nextLevel);
             this.loadProgress(nextLevel);
+            
+            // Reset player position to start
+            this.player.x = CONFIG.player.startX;
+            this.player.y = CONFIG.player.startY;
+            this.player.velocityX = 0;
+            this.player.velocityY = 0;
+            this.player.onGround = false;
+            this.player.isSpindashing = false;
             
             // Reset level state
             this.timer = 0;
@@ -1086,6 +1310,8 @@ class Game {
 
         this.state = 'title';
         this.score = 0;
+        this.serverAvailable = false; // Track if backend server is available
+        this.hasShownInitialZone = false; // Track if initial zone screen was shown
 
         this.player = new Player(assetManager);
         this.ground = {
@@ -1267,6 +1493,14 @@ drawTitle() {
             this.ctx.fillStyle = 'yellow';
             this.ctx.fillText('INVINCIBLE', this.canvas.width / 2 - 70, 40);
         }
+
+        // Offline indicator (only show when server is not available)
+        if (!this.serverAvailable) {
+            this.ctx.fillStyle = 'orange';
+            this.ctx.font = '16px Arial';
+            this.ctx.fillText('OFFLINE MODE', this.canvas.width - 150, 30);
+            this.ctx.fillText('(Progress not saved)', this.canvas.width - 180, 50);
+        }
     }
 
     
@@ -1356,6 +1590,37 @@ loop() {
                     }
                 }
             }
+            // Update and check boss
+            if (this.boss) {
+                this.boss.update();
+                // Check boss projectiles
+                for (let projectile of this.boss.projectiles) {
+                    if (projectile.checkCollision(this.player)) {
+                        this.player.takeDamage(this);
+                        projectile.destroy();
+                    }
+                }
+                // Check player attack on boss
+                if (this.player.isSpindashing && Math.abs(this.player.velocityX) > this.player.maxSpeed) {
+                    if (this.boss.checkCollision(this.player)) {
+                        this.boss.takeDamage();
+                        this.player.velocityX *= -0.5; // Bounce back
+                    }
+                }
+                // Check if boss is defeated
+                if (!this.boss.isAlive) {
+                    // Calculate level score
+                    const timeBonus = Math.max(0, 50000 - this.timer * 10);
+                    const ringBonus = this.player.rings * 100;
+                    this.score += timeBonus + ringBonus;
+                    
+                    // Save progress
+                    this.saveProgress(this.currentLevel);
+                    
+                    // Advance to next level or show completion
+                    this.nextLevel();
+                }
+            }
             // Update and check scattered rings
             for (let i = this.scatteredRings.length - 1; i >= 0; i--) {
                 const ring = this.scatteredRings[i];
@@ -1379,6 +1644,10 @@ loop() {
             this.drawGround();
             for (let ring of this.rings) ring.draw(this.ctx, this.cameraX);
             for (let enemy of this.enemies) enemy.draw(this.ctx, this.cameraX);
+            // Draw boss
+            if (this.boss) {
+                this.boss.draw(this.ctx, this.cameraX);
+            }
             // Draw platforms
             for (let platform of this.platforms) {
                 platform.draw(this.ctx, this.cameraX);
