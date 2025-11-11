@@ -86,6 +86,13 @@ const CONFIG = {
         audio: {
             titleMusic: 'audio/title.mp3',
             bgMusic: 'audio/green_hill.ogg',
+            act1Music: 'audio/act1Music.ogg',
+            act2Music: 'audio/act2Music.ogg',
+            act3Music: 'audio/act3Music.ogg',
+            bossMusic: 'audio/bossMusic.ogg',
+            victoryMusic: 'audio/victoryMusic.ogg',
+            gameCompleteMusic: 'audio/game_complete.ogg',
+            gameOverMusic: 'audio/gameOverMusic.ogg', // Game over music (placeholder)
             jumpSound: 'audio/jump.wav',
             spindashSound: 'audio/spindash.wav',
             springSound: 'audio/spring.wav'
@@ -102,6 +109,7 @@ const CONFIG = {
                 { x: 1600, y: 425 }
             ],
             rings: [
+                { x: 150, y: 400 }, { x: 180, y: 400 }, { x: 210, y: 400 }, // Rings at start
                 { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 },
                 { x: 500, y: 450 }, { x: 550, y: 450 },
                 { x: 600, y: 350 }, { x: 1000, y: 420 }, { x: 1100, y: 380 },
@@ -175,8 +183,7 @@ const CONFIG = {
                 { x: 550, y: 430 }, { x: 1150, y: 330 }, { x: 1450, y: 280 },
                 { x: 1750, y: 380 }, { x: 2350, y: 430 }, { x: 2650, y: 280 },
                 { x: 2950, y: 380 }, { x: 3250, y: 330 }, { x: 3550, y: 430 }
-            ],
-            goal: { x: 3800, y: 425 }
+            ]
         }
     }
 };
@@ -206,7 +213,7 @@ class Player {
         this.spindashMode = false;
         this.spindashCharge = 0;
         this.spindashTimer = 0;
-        this.isSpindashing = false; // Flag for maintaining jump animation during spindash
+        this.isRolling = false; // Flag for rolling mode after spindash
         
         // Store asset manager reference
         this.assets = assetManager;
@@ -251,14 +258,16 @@ class Player {
         // Horizontal movement
         if (keys['a']) {
             this.velocityX -= this.acceleration;
-            if (this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
+            if (!this.isRolling && this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
             this.facing = -1;
         } else if (keys['d']) {
             this.velocityX += this.acceleration;
-            if (this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
+            if (!this.isRolling && this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
             this.facing = 1;
         } else {
-            this.velocityX *= CONFIG.player.friction;
+            if (!this.isRolling) {
+                this.velocityX *= CONFIG.player.friction;
+            }
         }
 
         // Jumping - must release and press again (no bunny hopping)
@@ -295,7 +304,7 @@ class Player {
             this.spindashTimer = 0;
             this.animation = 'jump';
             this.spindashMode = false;
-            this.isSpindashing = true; // Flag to maintain jump animation during spindash
+            this.isRolling = true; // Enter rolling mode
         }
 
         // Apply horizontal velocity
@@ -312,7 +321,7 @@ class Player {
                 this.y = platform.y - this.height;
                 this.velocityY = 0;
                 this.onGround = true;
-                this.isSpindashing = false; // Clear spindash flag when landing
+                this.isRolling = false; // Clear rolling flag when landing
                 onPlatform = true;
                 break;  // Only land on one platform
             }
@@ -323,7 +332,7 @@ class Player {
             this.y = ground.y - this.height;
             this.velocityY = 0;
             this.onGround = true;
-            this.isSpindashing = false; // Clear spindash flag when landing
+            this.isRolling = false; // Clear rolling flag when landing
             if (this.animation === 'spindash') {
                 this.animation = 'idle';
                 this.spindashMode = false;
@@ -370,14 +379,13 @@ class Player {
             this.animation = 'idle';
             this.spindashMode = false;
             this.spindashTimer = 0;
-            this.isSpindashing = false; // Clear spindash flag when speed drops
         }
 
         // Set animation based on state
         if (this.spindashMode) {
             // Keep spindash states
-        } else if (this.isSpindashing) {
-            // Keep jump animation during spindash release for enemy killing
+        } else if (this.isRolling) {
+            // Keep jump animation during rolling for enemy killing
             this.animation = 'jump';
         } else if (!this.onGround) {
             this.animation = 'jump';
@@ -484,7 +492,7 @@ class Player {
             this.rings = 0;
             this.makeInvincible();
         } else {
-            this.die();
+            this.die(game);
         }
     }
     
@@ -493,11 +501,19 @@ class Player {
         this.invincibilityTimer = CONFIG.playerSettings.invincibilityFrames;
     }
     
-    die() {
+    die(game) {
         this.lives--;
         this.isDeathAnimating = true;
         this.deathAnimTimer = 0;
         this.deathAnimVy = 0;
+        // Pause music during death animation
+        if (game && game.currentMusic) {
+            try {
+                game.currentMusic.pause();
+            } catch (e) {
+                // Ignore pause errors
+            }
+        }
         // Play death sound if you have one: this.assets.getAudio('deathSound')?.play();
         // Don't set isDead yet; wait for animation to finish
         console.log('Sonic died! Lives remaining:', this.lives);
@@ -511,20 +527,28 @@ class Player {
         this.rings = 0;
         this.isDead = false;
         this.hurtTimer = 0;
-        this.isSpindashing = false; // Clear spindash flag on respawn
+        this.isRolling = false; // Clear rolling flag on respawn
         this.makeInvincible();
     }
     
     takeDamage(game) {
         if (this.isInvincible || this.hurtTimer > 0) return;
         console.log('Player took damage! Rings before:', this.rings);
-        this.loseRings(game);
-        console.log('Rings after damage:', this.rings);
-        // Knockback
-        this.velocityX = -this.facing * CONFIG.playerSettings.knockbackForce;
-        this.velocityY = -5;
-        // Hurt animation
-        this.hurtTimer = 30; // 0.5 seconds at 60fps
+        if (this.rings > 0) {
+            this.loseRings(game);
+            console.log('Rings after damage:', this.rings);
+            // Knockback
+            this.velocityX = -this.facing * CONFIG.playerSettings.knockbackForce;
+            this.velocityY = -5;
+            // Hurt animation
+            this.hurtTimer = 30; // 0.5 seconds at 60fps
+        } else {
+            // No rings, die
+            this.isDead = true;
+            this.isDeathAnimating = true;
+            this.deathAnimVy = -10;
+            this.deathAnimTimer = 0;
+        }
     }
 }
 
@@ -1183,6 +1207,29 @@ class Game {
         this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 140);
     }
     
+    drawVictory() {
+        this.ctx.fillStyle = 'black';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'gold';
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.fillText('ACT COMPLETE!', this.canvas.width / 2 - 180, this.canvas.height / 2 - 60);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText(`Time: ${this.formatTime(this.timer)}`, this.canvas.width / 2 - 80, this.canvas.height / 2 - 10);
+        this.ctx.fillText(`Rings: ${this.player.rings}`, this.canvas.width / 2 - 60, this.canvas.height / 2 + 20);
+        
+        // Show score breakdown
+        const timeBonus = Math.max(0, 50000 - this.timer * 10);
+        const ringBonus = this.player.rings * 100;
+        this.ctx.fillText(`Time Bonus: ${timeBonus.toLocaleString()}`, this.canvas.width / 2 - 120, this.canvas.height / 2 + 50);
+        this.ctx.fillText(`Ring Bonus: ${ringBonus.toLocaleString()}`, this.canvas.width / 2 - 110, this.canvas.height / 2 + 80);
+        this.ctx.fillStyle = 'yellow';
+        this.ctx.fillText(`Total Score: ${this.score.toLocaleString()}`, this.canvas.width / 2 - 100, this.canvas.height / 2 + 110);
+        
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillText('Advancing to next act...', this.canvas.width / 2 - 120, this.canvas.height / 2 + 140);
+    }
+    
     formatTime(frames) {
         const totalSeconds = Math.floor(frames / 60);
         const minutes = Math.floor(totalSeconds / 60);
@@ -1241,6 +1288,17 @@ class Game {
         const levelData = CONFIG.levels[levelName];
         if (!levelData) return;
 
+        // Set ground color based on act
+        if (levelName.includes('Act 1')) {
+            this.ground.color = '#8B4513'; // Brown
+        } else if (levelName.includes('Act 2')) {
+            this.ground.color = '#228B22'; // Green
+        } else if (levelName.includes('Act 3')) {
+            this.ground.color = '#8B008B'; // Purple
+        } else {
+            this.ground.color = '#8B4513'; // Default brown
+        }
+
         // Create enemies
         this.enemies = levelData.enemies.map(e => 
             new Enemy(e.x, this.ground.y - CONFIG.enemy.height)
@@ -1260,8 +1318,161 @@ class Game {
         // Create springs
         this.springs = levelData.springs.map(s => new Spring(s.x, s.y));
 
-        // Create goal
-        this.goal = new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height);
+        // Create goal (if level has one)
+        this.goal = levelData.goal ? new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height) : null;
+
+        // Don't auto-start boss fight - wait for player to reach boss area
+        // Boss fight will be triggered when player reaches boss position
+
+        // Switch to appropriate music for this level (only if not in title state)
+        if (this.state !== 'title') {
+            this.switchMusicForLevel(levelName);
+        }
+    }
+
+    // Switch to appropriate music for current level
+    switchMusicForLevel(levelName) {
+        // Prevent concurrent music switching
+        if (this.musicSwitching) return;
+        this.musicSwitching = true;
+
+        // Stop current music safely
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.pause();
+                this.currentMusic.currentTime = 0;
+            } catch (e) {
+                // Ignore errors if music is already stopped
+            }
+        }
+
+        let musicName;
+        if (this.isBossFight) {
+            musicName = 'bossMusic';
+        } else if (levelName === 'Test Zone Act 1') {
+            musicName = 'act1Music';
+        } else if (levelName === 'Test Zone Act 2') {
+            musicName = 'act2Music';
+        } else if (levelName === 'Test Zone Act 3') {
+            musicName = 'act3Music';
+        } else {
+            musicName = 'bgMusic'; // Fallback
+        }
+
+        this.currentMusic = this.assets.getAudio(musicName);
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.currentTime = 0;
+                const playPromise = this.currentMusic.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        this.musicSwitching = false;
+                    }).catch(error => {
+                        // Ignore abort errors (normal when switching music quickly)
+                        if (error.name !== 'AbortError') {
+                            console.warn('Music play error:', error);
+                        }
+                        this.musicSwitching = false;
+                    });
+                } else {
+                    this.musicSwitching = false;
+                }
+            } catch (e) {
+                this.musicSwitching = false;
+            }
+        } else {
+            this.musicSwitching = false;
+        }
+    }
+
+    // Start boss fight mode
+    startBossFight() {
+        this.isBossFight = true;
+        this.bossCameraLocked = true;
+        this.switchMusicForLevel(this.currentLevel);
+    }
+
+    // End boss fight mode
+    endBossFight() {
+        this.isBossFight = false;
+        this.bossCameraLocked = false;
+        this.switchMusicForLevel(this.currentLevel);
+    }
+
+    // Play victory music
+    playVictoryMusic() {
+        // Prevent concurrent music switching
+        if (this.musicSwitching) return;
+        this.musicSwitching = true;
+
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.pause();
+            } catch (e) {
+                // Ignore pause errors
+            }
+        }
+        this.currentMusic = this.assets.getAudio('victoryMusic');
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.currentTime = 0;
+                const playPromise = this.currentMusic.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        this.musicSwitching = false;
+                    }).catch(error => {
+                        if (error.name !== 'AbortError') {
+                            console.warn('Victory music play error:', error);
+                        }
+                        this.musicSwitching = false;
+                    });
+                } else {
+                    this.musicSwitching = false;
+                }
+            } catch (e) {
+                this.musicSwitching = false;
+            }
+        } else {
+            this.musicSwitching = false;
+        }
+    }
+
+    // Play game complete music
+    playGameCompleteMusic() {
+        // Prevent concurrent music switching
+        if (this.musicSwitching) return;
+        this.musicSwitching = true;
+
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.pause();
+            } catch (e) {
+                // Ignore pause errors
+            }
+        }
+        this.currentMusic = this.assets.getAudio('gameCompleteMusic');
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.currentTime = 0;
+                const playPromise = this.currentMusic.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        this.musicSwitching = false;
+                    }).catch(error => {
+                        if (error.name !== 'AbortError') {
+                            console.warn('Game complete music play error:', error);
+                        }
+                        this.musicSwitching = false;
+                    });
+                } else {
+                    this.musicSwitching = false;
+                }
+            } catch (e) {
+                this.musicSwitching = false;
+            }
+        } else {
+            this.musicSwitching = false;
+        }
     }
 
     nextLevel() {
@@ -1281,19 +1492,15 @@ class Game {
             this.player.velocityX = 0;
             this.player.velocityY = 0;
             this.player.onGround = false;
-            this.player.isSpindashing = false;
+            this.player.isRolling = false;
             
             // Reset level state
             this.timer = 0;
             this.scatteredRings = [];
             this.cameraX = 0;
             this.state = 'zone';
+            this.hasSwitchedToGameMusic = false; // Reset music switching flag
             setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
-            
-            // Restart background music
-            const bgMusic = this.assets.getAudio('bgMusic');
-            bgMusic.currentTime = 0;
-            bgMusic.play();
         } else {
             // Game complete!
             this.state = 'gamecomplete';
@@ -1312,6 +1519,11 @@ class Game {
         this.score = 0;
         this.serverAvailable = false; // Track if backend server is available
         this.hasShownInitialZone = false; // Track if initial zone screen was shown
+        this.currentMusic = null; // Track current playing music
+        this.isBossFight = false; // Track if in boss fight mode
+        this.bossCameraLocked = false; // Track if camera is locked to boss
+        this.musicSwitching = false; // Prevent concurrent music operations
+        this.hasSwitchedToGameMusic = false; // Track if we've switched to game music
 
         this.player = new Player(assetManager);
         this.ground = {
@@ -1325,6 +1537,7 @@ class Game {
         this.keys = {};
         this.setupInputHandlers();
         this.deathBlackScreenTimer = 0;
+        this.victoryTimer = 0;
         this.timer = 0;
         this.scatteredRings = [];
 
@@ -1410,10 +1623,8 @@ class Game {
         this.scatteredRings = [];
         this.cameraX = 0;
         
-        // Restart background music
-        const bgMusic = this.assets.getAudio('bgMusic');
-        bgMusic.currentTime = 0;
-        bgMusic.play();
+        // Reset music switching flag and switch to level music
+        this.hasSwitchedToGameMusic = false;
         
         // Stay in 'game' state
         this.state = 'game';
@@ -1509,16 +1720,47 @@ loop() {
     
     if (this.state === 'title') {
         this.drawTitle();
+        // Play title music only if we haven't switched to game music yet
         const titleMusic = this.assets.getAudio('titleMusic');
-        if (titleMusic.paused) titleMusic.play();
-        this.assets.getAudio('bgMusic').pause();
+        if (!this.musicSwitching && this.currentMusic !== titleMusic) {
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.pause();
+                } catch (e) {
+                    // Ignore pause errors
+                }
+            }
+            this.currentMusic = titleMusic;
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.currentTime = 0;
+                    const playPromise = this.currentMusic.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            // Ignore abort errors
+                            if (error.name !== 'AbortError') {
+                                console.warn('Title music play error:', error);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Ignore play errors
+                }
+            }
+        }
         document.getElementById('playerImg').style.display = 'none';
     } else if (this.state === 'zone') {
         this.drawZone();
-        this.assets.getAudio('titleMusic').pause();
-        this.assets.getAudio('bgMusic').pause();
+        // Pause music during zone transition
+        if (this.currentMusic) this.currentMusic.pause();
         document.getElementById('playerImg').style.display = 'none';
     } else if (this.state === 'game') {
+        // Switch to game music on first entry to game state
+        if (!this.hasSwitchedToGameMusic) {
+            this.hasSwitchedToGameMusic = true;
+            this.switchMusicForLevel(this.currentLevel);
+        }
+
         // If player is in death animation, update and draw only player
         if (this.player.isDeathAnimating) {
             // Draw level and dying Sonic
@@ -1560,36 +1802,44 @@ loop() {
             for (let spring of this.springs) {
                 spring.update();
             }
-            // Update goal
-            this.goal.update();
-            if (this.goal.checkCollision(this.player)) {
-                // Calculate level score
-                const timeBonus = Math.max(0, 50000 - this.timer * 10);
-                const ringBonus = this.player.rings * 100;
-                this.score += timeBonus + ringBonus;
-                
-                // Save progress
-                this.saveProgress(this.currentLevel);
-                
-                // Advance to next level or show completion
-                this.nextLevel();
+            // Update goal (if exists)
+            if (this.goal) {
+                this.goal.update();
+                if (this.goal.checkCollision(this.player)) {
+                    // Calculate level score
+                    const timeBonus = Math.max(0, 50000 - this.timer * 10);
+                    const ringBonus = this.player.rings * 100;
+                    this.score += timeBonus + ringBonus;
+                    
+                    // Save progress
+                    this.saveProgress(this.currentLevel);
+                    
+                    // Advance to next level or show completion
+                    this.nextLevel();
+                }
             }
             // Update and check enemies
             for (let enemy of this.enemies) {
                 enemy.update();
                 if (enemy.checkCollision(this.player)) {
                     const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
-                    const isSpindashing = this.player.isSpindashing && Math.abs(this.player.velocityX) > this.player.maxSpeed;
+                    const isRolling = this.player.isRolling;
                     if (isJumpingDown) {
                         enemy.destroy();
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
-                    } else if (isSpindashing) {
+                    } else if (isRolling) {
                         enemy.destroy();
+                        this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else {
                         this.player.takeDamage(this);
                     }
                 }
             }
+            // Check if player has reached boss area (Act 3)
+            if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 3000) {
+                this.startBossFight();
+            }
+
             // Update and check boss
             if (this.boss) {
                 this.boss.update();
@@ -1601,10 +1851,16 @@ loop() {
                     }
                 }
                 // Check player attack on boss
-                if (this.player.isSpindashing && Math.abs(this.player.velocityX) > this.player.maxSpeed) {
+                const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
+                const isRolling = this.player.isRolling;
+                if (isJumpingDown || isRolling) {
                     if (this.boss.checkCollision(this.player)) {
                         this.boss.takeDamage();
-                        this.player.velocityX *= -0.5; // Bounce back
+                        if (isJumpingDown) {
+                            this.player.velocityY = CONFIG.player.jumpStrength * 0.5; // Bounce off boss
+                        } else {
+                            this.player.velocityY = CONFIG.player.jumpStrength * 0.5; // Bounce off boss
+                        }
                     }
                 }
                 // Check if boss is defeated
@@ -1617,9 +1873,27 @@ loop() {
                     // Save progress
                     this.saveProgress(this.currentLevel);
                     
-                    // Advance to next level or show completion
-                    this.nextLevel();
+                    // Check if this is the final level
+                    const nextLevel = CONFIG.levels[this.currentLevel]?.next;
+                    if (!nextLevel) {
+                        // Game complete! Play special victory music
+                        this.playGameCompleteMusic();
+                        this.state = 'gamecomplete';
+                    } else {
+                        // Play victory music and show victory screen
+                        this.playVictoryMusic();
+                        this.victoryTimer = 0;
+                        this.state = 'victory';
+                    }
                 }
+            }
+
+            // Check if player reached level end (for non-boss levels)
+            if (!this.boss && this.player.x >= this.levelWidth - 100) {
+                // Play victory music
+                this.playVictoryMusic();
+                this.victoryTimer = 0;
+                this.state = 'victory';
             }
             // Update and check scattered rings
             for (let i = this.scatteredRings.length - 1; i >= 0; i--) {
@@ -1633,8 +1907,15 @@ loop() {
                     this.scatteredRings.splice(i, 1);  // Remove expired
                 }
             }
-            // Simple camera system - always centers on Sonic
-            const targetCameraX = this.player.x - this.canvas.width / 2;
+            // Camera system - centers on Sonic or boss during boss fight
+            let targetCameraX;
+            if (this.bossCameraLocked && this.boss) {
+                // Lock camera to boss during boss fight
+                targetCameraX = this.boss.x - this.canvas.width / 2;
+            } else {
+                // Normal camera - centers on Sonic
+                targetCameraX = this.player.x - this.canvas.width / 2;
+            }
             this.cameraX = targetCameraX;
 
             // Clamp camera to level bounds to prevent showing area outside the level
@@ -1656,33 +1937,78 @@ loop() {
             for (let spring of this.springs) {
                 spring.draw(this.ctx, this.cameraX);
             }
-            // Draw goal
-            this.goal.draw(this.ctx, this.cameraX);
+            // Draw goal (if exists)
+            if (this.goal) {
+                this.goal.draw(this.ctx, this.cameraX);
+            }
             // Draw scattered rings
             for (let ring of this.scatteredRings) {
                 ring.draw(this.ctx, this.cameraX);
             }
             this.player.draw(this.cameraX);
             this.drawHUD();
-            const bgMusic = this.assets.getAudio('bgMusic');
-            if (bgMusic.paused) bgMusic.play();
+            // Ensure current level music is playing (only if not switching music)
+            if (!this.musicSwitching && this.currentMusic && this.currentMusic.paused && this.state === 'game') {
+                try {
+                    const playPromise = this.currentMusic.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            // Ignore abort errors
+                            if (error.name !== 'AbortError') {
+                                console.warn('Game music resume error:', error);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Ignore play errors
+                }
+            }
             document.getElementById('playerImg').style.display = 'block';
         }
     } else if (this.state === 'gameover') {
         this.drawGameOver();
+        // Play game over music
+        if (!this.musicSwitching && this.currentMusic !== this.assets.getAudio('gameOverMusic')) {
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.pause();
+                } catch (e) {
+                    // Ignore pause errors
+                }
+            }
+            this.currentMusic = this.assets.getAudio('gameOverMusic');
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.currentTime = 0;
+                    const playPromise = this.currentMusic.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            if (error.name !== 'AbortError') {
+                                console.warn('Game over music play error:', error);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Ignore play errors
+                }
+            }
+        }
         document.getElementById('playerImg').style.display = 'none';
-        this.assets.getAudio('bgMusic').pause();
-        this.assets.getAudio('titleMusic').pause();
     } else if (this.state === 'levelcomplete') {
         this.drawLevelComplete();
         document.getElementById('playerImg').style.display = 'none';
-        this.assets.getAudio('bgMusic').pause();
-        this.assets.getAudio('titleMusic').pause();
+        if (this.currentMusic) this.currentMusic.pause();
+    } else if (this.state === 'victory') {
+        this.victoryTimer++;
+        if (this.victoryTimer > 300) { // 5 seconds at 60fps
+            this.nextLevel();
+        }
+        this.drawVictory();
+        document.getElementById('playerImg').style.display = 'none';
     } else if (this.state === 'gamecomplete') {
         this.drawGameComplete();
         document.getElementById('playerImg').style.display = 'none';
-        this.assets.getAudio('bgMusic').pause();
-        this.assets.getAudio('titleMusic').pause();
+        // Special victory music should already be playing from playGameCompleteMusic()
     }
     requestAnimationFrame(() => this.loop());
 }
