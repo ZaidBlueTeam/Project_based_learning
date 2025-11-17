@@ -310,6 +310,20 @@ class Player {
         // Apply horizontal velocity
         this.x += this.velocityX;
 
+        // Boss arena invisible walls
+        if (game.bossCameraLocked) {
+            const arenaLeft = game.cameraX;
+            const arenaRight = game.cameraX + game.canvas.width;
+            if (this.x < arenaLeft) {
+                this.x = arenaLeft;
+                this.velocityX = 0;
+            }
+            if (this.x + this.width > arenaRight) {
+                this.x = arenaRight - this.width;
+                this.velocityX = 0;
+            }
+        }
+
         // Apply gravity
         this.velocityY += this.gravity;
         this.y += this.velocityY;
@@ -665,6 +679,17 @@ class Boss {
             this.direction = -1;
         } else if (this.x < this.startX - this.patrolDistance) {
             this.direction = 1;
+        }
+        
+        // Keep boss within arena bounds (don't go off-screen during boss fight)
+        // Boss starts at x=3200, arena is approximately 2900-3800
+        if (this.x < 2900) {
+            this.x = 2900;
+            this.direction = 1;
+        }
+        if (this.x + this.width > 3800) {
+            this.x = 3800 - this.width;
+            this.direction = -1;
         }
         
         // Shooting logic
@@ -1154,21 +1179,9 @@ class Game {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'white';
         this.ctx.font = '48px Arial';
-        // Show "TEST ZONE" for initial start, then show act numbers for transitions
-        let displayText;
-        if (this.currentLevel === 'Test Zone Act 1' && this.state === 'zone' && !this.hasShownInitialZone) {
-            displayText = 'TEST ZONE';
-        } else {
-            // Extract act number from level name
-            const actMatch = this.currentLevel.match(/Act (\d+)/);
-            displayText = actMatch ? `ACT ${actMatch[1]}` : this.currentLevel;
-        }
-        this.ctx.fillText(displayText, this.canvas.width / 2 - 100, this.canvas.height / 2);
         
-        // Mark that we've shown the initial zone screen
-        if (this.currentLevel === 'Test Zone Act 1' && !this.hasShownInitialZone) {
-            this.hasShownInitialZone = true;
-        }
+        // Show full level name with act number
+        this.ctx.fillText(this.currentLevel, this.canvas.width / 2 - 200, this.canvas.height / 2);
     }
 
     drawGameComplete() {
@@ -1389,6 +1402,9 @@ class Game {
     startBossFight() {
         this.isBossFight = true;
         this.bossCameraLocked = true;
+        // Store arena bounds for invisible walls
+        this.bossArenaLeft = this.cameraX;
+        this.bossArenaRight = this.cameraX + this.canvas.width;
         this.switchMusicForLevel(this.currentLevel);
     }
 
@@ -1644,7 +1660,7 @@ drawTitle() {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = 'white';
         this.ctx.font = '48px Arial';
-        this.ctx.fillText('Test Zone', this.canvas.width / 2 - 150, this.canvas.height / 2);
+        this.ctx.fillText(this.currentLevel, this.canvas.width / 2 - 200, this.canvas.height / 2);
     }
 
     drawBackground() {
@@ -1814,8 +1830,10 @@ loop() {
                     // Save progress
                     this.saveProgress(this.currentLevel);
                     
-                    // Advance to next level or show completion
-                    this.nextLevel();
+                    // Play victory music and show victory screen
+                    this.playVictoryMusic();
+                    this.victoryTimer = 0;
+                    this.state = 'victory';
                 }
             }
             // Update and check enemies
@@ -1836,7 +1854,7 @@ loop() {
                 }
             }
             // Check if player has reached boss area (Act 3)
-            if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 3000) {
+            if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 2900) {
                 this.startBossFight();
             }
 
@@ -1888,8 +1906,8 @@ loop() {
                 }
             }
 
-            // Check if player reached level end (for non-boss levels)
-            if (!this.boss && this.player.x >= this.levelWidth - 100) {
+            // Check if player reached level end (for non-boss levels without goal)
+            if (!this.boss && !this.goal && this.player.x >= this.levelWidth - 100) {
                 // Play victory music
                 this.playVictoryMusic();
                 this.victoryTimer = 0;
@@ -1907,11 +1925,12 @@ loop() {
                     this.scatteredRings.splice(i, 1);  // Remove expired
                 }
             }
-            // Camera system - centers on Sonic or boss during boss fight
+            // Camera system - completely locks when boss fight is active
             let targetCameraX;
             if (this.bossCameraLocked && this.boss) {
-                // Lock camera to boss during boss fight
-                targetCameraX = this.boss.x - this.canvas.width / 2;
+                // Camera is completely frozen during boss fight
+                // Don't change targetCameraX - keep it at current position
+                targetCameraX = this.cameraX;
             } else {
                 // Normal camera - centers on Sonic
                 targetCameraX = this.player.x - this.canvas.width / 2;
@@ -2000,7 +2019,13 @@ loop() {
         if (this.currentMusic) this.currentMusic.pause();
     } else if (this.state === 'victory') {
         this.victoryTimer++;
-        if (this.victoryTimer > 300) { // 5 seconds at 60fps
+        
+        // Check if victory music has finished playing
+        const victoryMusic = this.assets.getAudio('victoryMusic');
+        const musicFinished = victoryMusic && (victoryMusic.ended || victoryMusic.currentTime >= victoryMusic.duration - 0.1);
+        
+        // Wait for music to finish OR max 10 seconds (600 frames) as backup
+        if (musicFinished || this.victoryTimer > 600) {
             this.nextLevel();
         }
         this.drawVictory();
