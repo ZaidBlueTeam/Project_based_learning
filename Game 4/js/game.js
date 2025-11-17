@@ -80,8 +80,10 @@ const CONFIG = {
             sonicJump: 'images/sonic_jump.gif',
             sonicCrouch: 'images/sonic_crouch.gif',
             sonicSpindash: 'images/sonic_spindash.gif',
+            sonicSpringUse: 'images/sonic_springuse.png',
             sonicDeath: 'images/sonic_dead.png',
-            sonicHurt: 'images/sonic_hurt.png'
+            sonicHurt: 'images/sonic_hurt.png',
+            sonic1GoalSign: 'images/sonic1_goal_sign.png'
         },
         audio: {
             titleMusic: 'audio/title.mp3',
@@ -214,6 +216,8 @@ class Player {
         this.spindashCharge = 0;
         this.spindashTimer = 0;
         this.isRolling = false; // Flag for rolling mode after spindash
+        this.isSpringBouncing = false; // Flag for spring bounce animation
+        this.springBounceTimer = 0; // Timer for how long spring animation lasts
         
         // Store asset manager reference
         this.assets = assetManager;
@@ -255,18 +259,55 @@ class Player {
             return;
         }
 
-        // Horizontal movement
-        if (keys['a']) {
-            this.velocityX -= this.acceleration;
-            if (!this.isRolling && this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
-            this.facing = -1;
-        } else if (keys['d']) {
-            this.velocityX += this.acceleration;
-            if (!this.isRolling && this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
-            this.facing = 1;
-        } else {
-            if (!this.isRolling) {
-                this.velocityX *= CONFIG.player.friction;
+        // Spindash: Press 's' to crouch, hold to charge, release to dash
+        // MUST be checked BEFORE horizontal movement to prevent moving while charging
+        if (keys['s'] && this.onGround && !this.spindashMode) {
+            // Can only START spindash if standing still (or moving very slowly)
+            if (Math.abs(this.velocityX) < 0.5) {
+                this.spindashMode = true;
+                this.velocityX = 0; // Stop all movement
+                this.animation = 'crouch';
+                this.spindashTimer = 0;
+                this.spindashCharge = 0;
+                this.assets.getAudio('spindashSound').play();
+            }
+        } else if (keys['s'] && this.spindashMode) {
+            // Charging - locked in place, can't move
+            this.velocityX = 0; // Keep locked in place
+            this.spindashCharge += 1;
+            this.spindashTimer += 1;
+            if (this.spindashTimer > CONFIG.player.spindashChargeFrames) {
+                this.animation = 'spindash';
+            }
+        } else if (!keys['s'] && this.spindashMode && this.spindashCharge > 0) {
+            // Release: Dash with jump animation
+            this.velocityX = this.facing * CONFIG.player.spindashSpeed * (this.spindashCharge / 10);
+            this.spindashCharge = 0;
+            this.spindashTimer = 0;
+            this.animation = 'jump';
+            this.spindashMode = false;
+            this.isRolling = true; // Enter rolling mode
+        } else if (!keys['s'] && this.spindashMode) {
+            // Cancelled spindash without charging
+            this.spindashMode = false;
+            this.spindashCharge = 0;
+            this.spindashTimer = 0;
+        }
+
+        // Horizontal movement - BLOCKED during spindash charging
+        if (!this.spindashMode) {
+            if (keys['a']) {
+                this.velocityX -= this.acceleration;
+                if (!this.isRolling && this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
+                this.facing = -1;
+            } else if (keys['d']) {
+                this.velocityX += this.acceleration;
+                if (!this.isRolling && this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
+                this.facing = 1;
+            } else {
+                if (!this.isRolling) {
+                    this.velocityX *= CONFIG.player.friction;
+                }
             }
         }
 
@@ -280,31 +321,6 @@ class Player {
             this.jumpKeyWasPressed = true;  // Mark that jump key is being held
         } else {
             this.jumpKeyWasPressed = false;  // Reset when key is released
-        }
-
-        // Spindash: Press 's' to crouch, hold to charge, release to dash
-        if (keys['s'] && this.onGround) {
-            if (!this.spindashMode) {
-                this.spindashMode = true;
-                this.animation = 'crouch';
-                this.spindashTimer = 0;
-                this.assets.getAudio('spindashSound').play();
-            } else {
-                // Charging
-                this.spindashCharge += 1;
-                this.spindashTimer += 1;
-                if (this.spindashTimer > CONFIG.player.spindashChargeFrames) {
-                    this.animation = 'spindash';
-                }
-            }
-        } else if (!keys['s'] && this.spindashMode && this.spindashCharge > 0) {
-            // Release: Dash with jump animation
-            this.velocityX = this.facing * CONFIG.player.spindashSpeed * (this.spindashCharge / 10);
-            this.spindashCharge = 0;
-            this.spindashTimer = 0;
-            this.animation = 'jump';
-            this.spindashMode = false;
-            this.isRolling = true; // Enter rolling mode
         }
 
         // Apply horizontal velocity
@@ -335,7 +351,6 @@ class Player {
                 this.y = platform.y - this.height;
                 this.velocityY = 0;
                 this.onGround = true;
-                this.isRolling = false; // Clear rolling flag when landing
                 onPlatform = true;
                 break;  // Only land on one platform
             }
@@ -346,7 +361,6 @@ class Player {
             this.y = ground.y - this.height;
             this.velocityY = 0;
             this.onGround = true;
-            this.isRolling = false; // Clear rolling flag when landing
             if (this.animation === 'spindash') {
                 this.animation = 'idle';
                 this.spindashMode = false;
@@ -355,14 +369,16 @@ class Player {
         } else if (!onPlatform) {
             this.onGround = false;
         }
+        
+        // Clear rolling flag when slowing down (not when landing!)
+        if (this.isRolling && Math.abs(this.velocityX) < 2) {
+            this.isRolling = false;
+        }
 
         // Spring collision
         for (let spring of game.springs) {
             if (spring.checkCollision(this)) {
-                this.velocityY = CONFIG.spring.bounceStrength;
-                this.onGround = false;
-                const springAudio = this.assets.getAudio('springSound');
-                if (springAudio) springAudio.play();
+                spring.bounce(this);  // Use the spring's bounce method with all the effects!
                 break;  // Only bounce on one spring
             }
         }
@@ -398,6 +414,9 @@ class Player {
         // Set animation based on state
         if (this.spindashMode) {
             // Keep spindash states
+        } else if (this.isSpringBouncing) {
+            // Keep jump animation during spring bounce
+            this.animation = 'jump';
         } else if (this.isRolling) {
             // Keep jump animation during rolling for enemy killing
             this.animation = 'jump';
@@ -426,6 +445,14 @@ class Player {
                 this.makeInvincible();
             }
         }
+        
+        // Handle spring bounce timer
+        if (this.springBounceTimer > 0) {
+            this.springBounceTimer--;
+            if (this.springBounceTimer === 0) {
+                this.isSpringBouncing = false;
+            }
+        }
     }
 
     draw(cameraX) {
@@ -442,6 +469,9 @@ class Player {
             src = CONFIG.assets.images.sonicDeath;
         } else if (this.hurtTimer > 0) {
             src = CONFIG.assets.images.sonicHurt;
+        } else if (this.isSpringBouncing) {
+            src = CONFIG.assets.images.sonicSpringUse;
+            console.log('🎨 Using spring sprite!', src);
         } else {
             switch (this.animation) {
                 case 'idle': src = CONFIG.assets.images.sonicIdle; break;
@@ -453,7 +483,8 @@ class Player {
             }
         }
         // Only change src if animation actually changed to avoid interrupting GIF playback
-        if (playerImg.src !== src) {
+        // Compare the end of the current src with the new src to avoid full URL mismatch
+        if (!playerImg.src.endsWith(src)) {
             playerImg.src = src;
         }
         // Position relative to game container, accounting for camera offset
@@ -482,14 +513,19 @@ class Player {
     
     collectRing() {
         this.rings++;
+        console.log(`💍 Collected ring! Total: ${this.rings}`);
     }
     
     loseRings(game) {
         if (this.rings > 0) {
+            console.log(`💍 Losing ${this.rings} rings! Scattering...`);
+            // Limit scattered rings to 32 (like real Sonic games)
+            const ringsToScatter = Math.min(this.rings, 32);
+            
             // Scatter rings in random directions
-            for (let i = 0; i < this.rings; i++) {
+            for (let i = 0; i < ringsToScatter; i++) {
                 // Random angle and speed
-                const angle = (Math.PI * 2 * i) / this.rings;  // Evenly spread
+                const angle = (Math.PI * 2 * i) / ringsToScatter;  // Evenly spread
                 const speed = 3 + Math.random() * 2;  // 3-5 pixels/frame
                 const velocityX = Math.cos(angle) * speed;
                 const velocityY = Math.sin(angle) * speed - 2;  // Slight upward
@@ -503,6 +539,7 @@ class Player {
                 );
                 game.scatteredRings.push(scatteredRing);
             }
+            console.log(`✅ Scattered ${ringsToScatter} rings! Total in array:`, game.scatteredRings.length);
             this.rings = 0;
             this.makeInvincible();
         } else {
@@ -913,21 +950,46 @@ class ScatteredRing {
         this.height = CONFIG.ring.height;
         this.collected = false;
         this.animationFrame = 0;
-        this.lifetime = 480;  // 8 seconds at 60fps before disappearing  
+        this.lifetime = 256;  // About 4 seconds at 60fps (like real Sonic)
+        this.canBeCollected = false; // Can't collect immediately after scattering
+        this.collectionDelay = 30; // 0.5 seconds at 60fps before you can collect
     }
 
-        update() {
+    update(groundY) {
         if (this.collected) return;
         
         // Apply gravity (rings fall down)
-        this.velocityY += 0.2;
+        this.velocityY += 0.4;
         
         // Move
         this.x += this.velocityX;
         this.y += this.velocityY;
         
+        // Ground collision with bounce
+        if (this.y + this.height >= groundY) {
+            this.y = groundY - this.height;
+            this.velocityY = -this.velocityY * 0.75; // Bounce with 75% energy
+            this.velocityX *= 0.85; // Friction on ground
+            
+            // Stop bouncing if velocity is too low
+            if (Math.abs(this.velocityY) < 1) {
+                this.velocityY = 0;
+            }
+        }
+        
+        // Air friction
+        this.velocityX *= 0.98;
+        
         // Rotate for animation
         this.animationFrame = (this.animationFrame + 0.2) % 360;
+        
+        // Countdown collection delay
+        if (!this.canBeCollected && this.collectionDelay > 0) {
+            this.collectionDelay--;
+            if (this.collectionDelay <= 0) {
+                this.canBeCollected = true;
+            }
+        }
         
         // Countdown lifetime
         this.lifetime--;
@@ -936,7 +998,7 @@ class ScatteredRing {
         }
     }
 
-        draw(ctx, cameraX) {
+    draw(ctx, cameraX) {
         if (this.collected) return;
         
         ctx.save();
@@ -960,8 +1022,8 @@ class ScatteredRing {
         ctx.restore();
     }
 
-        checkCollision(player) {
-        if (this.collected) return false;
+    checkCollision(player) {
+        if (this.collected || !this.canBeCollected) return false; // Can't collect until delay passes
         
         return player.x < this.x + this.width &&
                player.x + player.width > this.x &&
@@ -1015,6 +1077,8 @@ class Spring {
         this.bounceStrength = CONFIG.spring.bounceStrength;
         this.animationFrame = 0;
         this.isBouncing = false;
+        this.cooldown = 0;        // Cooldown timer
+        this.maxCooldown = 30;    // 0.5 seconds at 60fps
     }
     
     update() {
@@ -1025,21 +1089,40 @@ class Spring {
                 this.animationFrame = 0;
             }
         }
+        
+        // Countdown cooldown timer
+        if (this.cooldown > 0) {
+            this.cooldown--;
+        }
     }
     
     draw(ctx, cameraX) {
-        ctx.fillStyle = CONFIG.spring.color;
+        // Change color when on cooldown
+        if (this.cooldown > 0) {
+            ctx.fillStyle = 'gray';  // Gray when on cooldown
+        } else {
+            ctx.fillStyle = CONFIG.spring.color;  // Yellow when ready
+        }
         ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
         
-        // Draw spring coils (simple animation)
+        // Draw spring coils (compress when bouncing)
         ctx.fillStyle = 'black';
         const coilHeight = this.isBouncing ? 5 : 10;  // Compress when bouncing
         for (let i = 0; i < 3; i++) {
             ctx.fillRect(this.x - cameraX + 5 + i * 10, this.y + 5, 5, coilHeight);
         }
+        
+        // Add visual indicator for cooldown
+        if (this.cooldown > 0) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        }
     }
     
     checkCollision(player) {
+        // Can't use spring during cooldown
+        if (this.cooldown > 0) return false;
+        
         return player.x < this.x + this.width &&
                player.x + player.width > this.x &&
                player.y < this.y + this.height &&
@@ -1049,8 +1132,19 @@ class Spring {
     bounce(player) {
         player.velocityY = this.bounceStrength;  // Launch up!
         player.onGround = false;
-        this.isBouncing = true;  // Trigger animation
-        // TODO: Play spring sound
+        this.isBouncing = true;  // Trigger spring visual animation
+        
+        // Trigger Sonic's spring bounce animation
+        player.isSpringBouncing = true;
+        player.springBounceTimer = 20; // Show spring animation for ~0.33 seconds
+        console.log('🎯 Spring bounce! isSpringBouncing:', player.isSpringBouncing, 'cooldown:', this.maxCooldown);
+        
+        // Start cooldown
+        this.cooldown = this.maxCooldown;
+        
+        // Play spring sound
+        const springAudio = player.assets.getAudio('springSound');
+        if (springAudio) springAudio.play();
     }
 }
 
@@ -1066,16 +1160,15 @@ class Goal {
     }
     
     draw(ctx, cameraX) {
-        ctx.fillStyle = CONFIG.goal.color;
-        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
-        
-        // Draw flag pole
-        ctx.fillStyle = 'white';
-        ctx.fillRect(this.x - cameraX + this.width / 2 - 2, this.y, 4, this.height);
-        
-        // Draw flag
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x - cameraX + this.width / 2 + 2, this.y + 10, 20, 15);
+        // Draw Sonic 1 goal sign sprite using asset manager
+        const img = assetManager.getImage('sonic1GoalSign');
+        if (img) {
+            ctx.drawImage(img, this.x - cameraX, this.y, this.width, this.height);
+        } else {
+            // Fallback: draw a placeholder rectangle
+            ctx.fillStyle = CONFIG.goal.color;
+            ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        }
     }
     
     update() {
@@ -1664,29 +1757,22 @@ drawTitle() {
     }
 
     drawBackground() {
-        const bgImage = this.assets.getImage('background');
+        // Background is an animated GIF positioned behind the canvas
+        const bgImage = document.getElementById('backgroundImg');
         if (!bgImage) return;
-
-        // Get background image dimensions (assume it's designed for canvas height)
-        const bgWidth = bgImage.width;
-        const bgHeight = this.canvas.height;
-
-        // Calculate how many background tiles we need to cover the level
-        const tilesNeeded = Math.ceil(CONFIG.level.width / bgWidth);
-
-        // Draw looped background tiles
-        for (let i = 0; i < tilesNeeded; i++) {
-            const xPos = i * bgWidth - this.cameraX;
-            // Only draw tiles that are visible on screen (with small buffer)
-            if (xPos > -bgWidth && xPos < this.canvas.width) {
-                this.ctx.drawImage(bgImage, xPos, 0, bgWidth, bgHeight);
-            }
-        }
+        
+        // Parallax scrolling - background moves slower than camera for depth
+        const parallaxSpeed = 0.5;
+        const offsetX = -this.cameraX * parallaxSpeed;
+        
+        // Move background using transform for smooth scrolling
+        bgImage.style.transform = `translateX(${offsetX}px)`;
     }
 
     drawGround() {
         this.ctx.fillStyle = this.ground.color;
-        this.ctx.fillRect(this.ground.x - this.cameraX, this.ground.y, this.ground.width, this.ground.height);
+        // Only draw the visible portion of ground (canvas width, not entire level)
+        this.ctx.fillRect(0, this.ground.y, this.canvas.width, this.ground.height);
     }
     
     drawHUD() {
@@ -1809,7 +1895,7 @@ loop() {
             // Update and check rings
             for (let ring of this.rings) {
                 ring.update();
-                if (ring.checkCollision(this.player)) {
+                if (!ring.collected && ring.checkCollision(this.player)) {
                     ring.collect();
                     this.player.collectRing();
                 }
@@ -1916,7 +2002,7 @@ loop() {
             // Update and check scattered rings
             for (let i = this.scatteredRings.length - 1; i >= 0; i--) {
                 const ring = this.scatteredRings[i];
-                ring.update();
+                ring.update(this.ground.y); // Pass ground position for collision
                 if (ring.checkCollision(this.player)) {
                     ring.collect();
                     this.player.collectRing();

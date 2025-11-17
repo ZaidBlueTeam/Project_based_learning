@@ -65,19 +65,39 @@ h1 {
     overflow: hidden; /* Prevent any overflow from game elements */
     max-width: 100%; /* Ensure it doesn't exceed viewport width */
     max-height: 100%; /* Ensure it doesn't exceed viewport height */
+    width: 900px; /* Match canvas width */
+    height: 600px; /* Match canvas height */
 }
 
 #gameCanvas {
     border: 2px solid #FFD700; /* Gold border to match theme */
-    background-color: #87CEEB; /* Sky blue inside canvas */
+    background-color: transparent; /* Transparent to see background GIF */
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); /* Glow effect for 3D feel */
     display: block; /* Ensure canvas displays as block element */
+    position: absolute; /* Position above background */
+    top: 0;
+    left: 0;
+    z-index: 5; /* Above background, below player */
+}
+
+#backgroundImg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4000px; /* Match entire level width */
+    height: 600px; /* Match canvas height */
+    background-image: url('../images/green_hill.gif');
+    background-repeat: repeat-x; /* Repeat horizontally across level */
+    background-size: auto 100%; /* Height matches canvas, width auto-scales */
+    z-index: 1; /* Behind canvas */
+    pointer-events: none;
+    display: block;
 }
 
 #playerImg {
     position: absolute;
     pointer-events: none;
-    z-index: 10;
+    z-index: 10; /* Above everything */
     display: none;
     /* Positioning will be handled by JavaScript */
 }
