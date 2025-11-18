@@ -83,7 +83,10 @@ const CONFIG = {
             sonicSpringUse: 'images/sonic_springuse.png',
             sonicDeath: 'images/sonic_dead.png',
             sonicHurt: 'images/sonic_hurt.png',
-            sonic1GoalSign: 'images/sonic1_goal_sign.png'
+            sonic1GoalSign: 'images/sonic1_goal_sign.png',
+            hellBossSprite: 'images/2011X_Groovin.gif',
+            ringSprite: 'images/ring.gif',  // Add ring sprite (use a GIF for animation if desired)
+            testZoneBossSprite: 'images/eggman_sprite.gif',  // Add Test Zone boss sprite
         },
         audio: {
             titleMusic: 'audio/title.mp3',
@@ -97,7 +100,11 @@ const CONFIG = {
             gameOverMusic: 'audio/gameOverMusic.ogg', // Game over music (placeholder)
             jumpSound: 'audio/jump.wav',
             spindashSound: 'audio/spindash.wav',
-            springSound: 'audio/spring.wav'
+            springSound: 'audio/spring.wav',
+            hellAct1Music: 'audio/hillACT1.ogg',
+            hellAct2Music: 'audio/hillACT2.ogg',
+            hellAct3Music: 'audio/hillACT3.ogg',
+            hellBossMusic: 'audio/hillBOSS.wav'
         }
     },
 
@@ -161,9 +168,9 @@ const CONFIG = {
             goal: { x: 3800, y: 425 }
         },
         'Test Zone Act 3': {
-            next: null, // Final level
+            next: 'Hell.exe Act 1', // Continue to Hell.exe acts
             enemies: [], // No regular enemies in Act 3
-            boss: { x: 3200, y: 350 }, // Eggman boss
+            boss: { x: 3200, y: 350, sprite: 'testZoneBossSprite' }, // Eggman boss
             rings: [
                 { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 },
                 { x: 450, y: 450 }, { x: 500, y: 450 }, { x: 550, y: 350 },
@@ -186,12 +193,104 @@ const CONFIG = {
                 { x: 1750, y: 380 }, { x: 2350, y: 430 }, { x: 2650, y: 280 },
                 { x: 2950, y: 380 }, { x: 3250, y: 330 }, { x: 3550, y: 430 }
             ]
+        },
+        'Hell.exe Act 1': {
+            next: 'Hell.exe Act 2',
+            enemies: [
+                { x: 600, y: 425, type: 'exe' }, { x: 1200, y: 425, type: 'exe' }, { x: 1800, y: 425, type: 'exe' },
+                { x: 2400, y: 425, type: 'exe' }, { x: 3000, y: 425, type: 'exe' }, { x: 3600, y: 425, type: 'exe' }
+            ],
+            rings: [
+                { x: 200, y: 400 }, { x: 250, y: 400 }, { x: 300, y: 400 }, { x: 350, y: 400 }, { x: 400, y: 400 },
+                { x: 800, y: 350 }, { x: 850, y: 350 }, { x: 900, y: 350 }, { x: 950, y: 350 }, { x: 1000, y: 350 },
+                { x: 1600, y: 420 }, { x: 1650, y: 420 }, { x: 1700, y: 420 }, { x: 1750, y: 420 }, { x: 1800, y: 420 },
+                { x: 2200, y: 400 }, { x: 2250, y: 400 }, { x: 2300, y: 400 }, { x: 2350, y: 400 }, { x: 2400, y: 400 },
+                { x: 3000, y: 380 }, { x: 3050, y: 380 }, { x: 3100, y: 380 }, { x: 3150, y: 380 }, { x: 3200, y: 380 }
+            ],
+            platforms: [
+                { x: 700, y: 350, width: 200 }, { x: 1300, y: 300, width: 180 }, { x: 1900, y: 250, width: 220 },
+                { x: 2500, y: 350, width: 200 }, { x: 3100, y: 300, width: 180 }, { x: 3700, y: 250, width: 220 }
+            ],
+            springs: [
+                { x: 750, y: 330 }, { x: 1350, y: 280 }, { x: 1950, y: 230 }, { x: 2550, y: 330 }, { x: 3150, y: 280 }
+            ],
+            pits: [
+                { x: 1100, width: 100 }, { x: 2100, width: 120 }, { x: 3300, width: 150 }
+            ],
+            goal: { x: 3900, y: 425 },
+            theme: {
+                background: 'images/hill_sonicexe.jpg',
+                music: 'hellAct1Music'
+            }
+        },
+        'Hell.exe Act 2': {
+            width: 4200,  // Increase level width to allow reaching the goal at x: 4100
+            next: 'Hell.exe Act 3',
+            enemies: [
+                { x: 800, y: 425, type: 'exe' }, { x: 1600, y: 425, type: 'exe' }, { x: 2400, y: 425, type: 'exe' },
+                { x: 3200, y: 425, type: 'exe' }, { x: 3800, y: 425, type: 'exe' }
+            ],
+            rings: [
+                { x: 400, y: 400 }, { x: 450, y: 400 }, { x: 500, y: 400 }, { x: 550, y: 400 }, { x: 600, y: 400 },
+                { x: 1200, y: 350 }, { x: 1250, y: 350 }, { x: 1300, y: 350 }, { x: 1350, y: 350 }, { x: 1400, y: 350 },
+                { x: 2000, y: 420 }, { x: 2050, y: 420 }, { x: 2100, y: 420 }, { x: 2150, y: 420 }, { x: 2200, y: 420 },
+                { x: 2800, y: 400 }, { x: 2850, y: 400 }, { x: 2900, y: 400 }, { x: 2950, y: 400 }, { x: 3000, y: 400 }
+            ],
+            platforms: [
+                { x: 900, y: 350, width: 220 }, { x: 1700, y: 300, width: 200 }, { x: 2500, y: 250, width: 240 },
+                { x: 3300, y: 350, width: 220 }, { x: 3900, y: 300, width: 200 }
+            ],
+            springs: [
+                { x: 950, y: 330 }, { x: 1750, y: 280 }, { x: 2550, y: 230 }, { x: 3350, y: 330 }
+            ],
+            pits: [
+                { x: 1500, width: 120 }, { x: 2700, width: 150 }, { x: 3700, width: 180 }
+            ],
+            goal: { x: 4000, y: 425 },
+            theme: {
+                background: 'images/hill_sonicexe.jpg',
+                music: 'hellAct2Music'
+            }
+        },
+        'Hell.exe Act 3': {
+            next: null,
+            enemies: [],
+            boss: {
+                x: 1600,
+                y: 350,
+                type: 'exeBoss',
+                sprite: 'hellBossSprite', // Use your 2011 x sprite here
+                music: 'hellBossMusic'
+            },
+            rings: [
+                { x: 500, y: 400 }, { x: 550, y: 400 }, { x: 600, y: 400 }, { x: 650, y: 400 }, { x: 700, y: 400 },
+                { x: 1200, y: 350 }, { x: 1250, y: 350 }, { x: 1300, y: 350 }, { x: 1350, y: 350 }, { x: 1400, y: 350 },
+                { x: 2000, y: 420 }, { x: 2050, y: 420 }, { x: 2100, y: 420 }, { x: 2150, y: 420 }, { x: 2200, y: 420 },
+                { x: 2800, y: 400 }, { x: 2850, y: 400 }, { x: 2900, y: 400 }, { x: 2950, y: 400 }, { x: 3000, y: 400 }
+            ],
+            platforms: [
+                { x: 1000, y: 350, width: 220 }, { x: 1800, y: 300, width: 200 }, { x: 2600, y: 250, width: 240 },
+                { x: 3400, y: 350, width: 220 }, { x: 4000, y: 300, width: 200 }
+            ],
+            springs: [
+                { x: 1050, y: 330 }, { x: 1850, y: 280 }, { x: 2650, y: 230 }, { x: 3450, y: 330 }
+            ],
+            pits: [
+                { x: 1600, width: 120 }, { x: 2800, width: 150 }, { x: 3900, width: 180 }
+            ],
+            theme: {
+                background: 'images/hill_sonicexe.jpg',
+                music: 'hellAct3Music'
+            }
         }
     }
 };
 
 class Player {
     constructor(assetManager) {
+        // Ensure assetManager is defined (avoid parser issues with unexpected characters)
+        assetManager = assetManager || null;
+
         // Position and size
         this.x = CONFIG.player.startX;
         this.y = CONFIG.player.startY;
@@ -368,6 +467,17 @@ class Player {
             }
         } else if (!onPlatform) {
             this.onGround = false;
+        }
+        
+        // Check pit death
+        if (!this.onGround && this.y + this.height >= ground.y) {
+            for (let pit of game.pits) {
+                if (this.x + this.width > pit.x && this.x < pit.x + pit.width) {
+                    // Fell into pit - instant death
+                    this.die(game);
+                    break;
+                }
+            }
         }
         
         // Clear rolling flag when slowing down (not when landing!)
@@ -680,15 +790,18 @@ class Enemy {
 // BOSS CLASS (Eggman)
 // ============================
 class Boss {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
+    constructor(config, assets) {
+        this.x = config.x;
+        this.y = config.y;
+        this.sprite = config.sprite || null;
+        this.music = config.music || null;
+        this.assets = assets;
         this.width = 80;  // Bigger than regular enemies
         this.height = 60;
         this.speed = 1.5; // Slower than regular enemies
         
         // Movement
-        this.startX = x;
+        this.startX = this.x;
         this.direction = 1;  // 1 = right, -1 = left
         this.patrolDistance = 300; // Moves further than regular enemies
         
@@ -760,22 +873,18 @@ class Boss {
     draw(ctx, cameraX) {
         if (!this.isAlive) return;
         
-        // Draw Eggman's vehicle as a gray egg shape
-        ctx.fillStyle = 'gray';
-        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
-        
-        // Draw red details (Eggman's face area)
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 20, 15);
-        ctx.fillRect(this.x - cameraX + 50, this.y + 10, 20, 15);
-        
-        // Draw eyes
-        ctx.fillStyle = 'white';
-        ctx.fillRect(this.x - cameraX + 15, this.y + 15, 6, 6);
-        ctx.fillRect(this.x - cameraX + 55, this.y + 15, 6, 6);
-        ctx.fillStyle = 'black';
-        ctx.fillRect(this.x - cameraX + 17, this.y + 17, 3, 3);
-        ctx.fillRect(this.x - cameraX + 57, this.y + 17, 3, 3);
+        if (this.sprite) {
+            // Draw custom sprite
+            const img = this.assets.getImage(this.sprite);
+            if (img) {
+                ctx.drawImage(img, this.x - cameraX, this.y, this.width, this.height);
+            } else {
+                // Fallback to default if image not loaded
+                this.drawDefault(ctx, cameraX);
+            }
+        } else {
+            this.drawDefault(ctx, cameraX);
+        }
         
         // Draw health bar
         const barWidth = 60;
@@ -803,6 +912,25 @@ class Boss {
                 projectile.draw(ctx, cameraX);
             }
         }
+    }
+    
+    drawDefault(ctx, cameraX) {
+        // Draw Eggman's vehicle as a gray egg shape (default)
+        ctx.fillStyle = 'gray';
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Draw red details (Eggman's face area)
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x - cameraX + 10, this.y + 10, 20, 15);
+        ctx.fillRect(this.x - cameraX + 50, this.y + 10, 20, 15);
+        
+        // Draw eyes
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x - cameraX + 15, this.y + 15, 6, 6);
+        ctx.fillRect(this.x - cameraX + 55, this.y + 15, 6, 6);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(this.x - cameraX + 17, this.y + 17, 3, 3);
+        ctx.fillRect(this.x - cameraX + 57, this.y + 17, 3, 3);
     }
     
     checkCollision(player) {
@@ -888,9 +1016,10 @@ class BossProjectile {
 // RING CLASS
 // ============================
 class Ring {
-    constructor(x, y) {
+    constructor(x, y, assets) {
         this.x = x;
         this.y = y;
+        this.assets = assets;
         this.width = CONFIG.ring.width;
         this.height = CONFIG.ring.height;
         this.collected = false;
@@ -902,9 +1031,15 @@ class Ring {
         this.animationFrame = (this.animationFrame + 0.2) % 360;
     }
     
-    draw(ctx, cameraX) {
-        if (this.collected) return;
-        
+draw(ctx, cameraX) {
+    if (this.collected) return;
+    
+    // Draw custom ring sprite
+    const ringImg = this.assets.getImage('ringSprite');
+    if (ringImg) {
+        ctx.drawImage(ringImg, this.x - cameraX, this.y, this.width, this.height);
+    } else {
+        // Fallback: draw the original animated circle if sprite fails to load
         ctx.save();
         ctx.translate((this.x - cameraX) + this.width / 2, this.y + this.height / 2);
         ctx.rotate(this.animationFrame * Math.PI / 180);
@@ -925,6 +1060,7 @@ class Ring {
         
         ctx.restore();
     }
+}
     
     checkCollision(player) {
         if (this.collected) return false;
@@ -1209,8 +1345,10 @@ class AssetManager {
 
     loadAudio(name, src) {
         return new Promise((resolve, reject) => {
+            console.log('Loading audio:', name, src);
             const audio = new Audio();
             audio.oncanplaythrough = () => {
+                console.log('Loaded audio:', name);
                 this.audio[name] = audio;
                 this.loadedCount++;
                 resolve(audio);
@@ -1394,6 +1532,9 @@ class Game {
         const levelData = CONFIG.levels[levelName];
         if (!levelData) return;
 
+        // Set level width (use level-specific if available, else default)
+        this.levelWidth = levelData.width || CONFIG.level.width;
+
         // Set ground color based on act
         if (levelName.includes('Act 1')) {
             this.ground.color = '#8B4513'; // Brown
@@ -1411,10 +1552,10 @@ class Game {
         );
 
         // Create boss (if level has one)
-        this.boss = levelData.boss ? new Boss(levelData.boss.x, levelData.boss.y) : null;
+        this.boss = levelData.boss ? new Boss(levelData.boss, this.assets) : null;
 
         // Create rings
-        this.rings = levelData.rings.map(r => new Ring(r.x, r.y));
+        this.rings = levelData.rings.map(r => new Ring(r.x, r.y, this.assets));
 
         // Create platforms
         this.platforms = levelData.platforms.map(p => 
@@ -1423,6 +1564,9 @@ class Game {
 
         // Create springs
         this.springs = levelData.springs.map(s => new Spring(s.x, s.y));
+
+        // Add this line to initialize pits
+        this.pits = levelData.pits || [];
 
         // Create goal (if level has one)
         this.goal = levelData.goal ? new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height) : null;
@@ -1452,9 +1596,32 @@ class Game {
             }
         }
 
+        // Force stop any boss music if not in boss fight
+        if (!this.isBossFight) {
+            const bossMusic = this.assets.getAudio('bossMusic');
+            if (bossMusic && !bossMusic.paused) {
+                try {
+                    bossMusic.pause();
+                    bossMusic.currentTime = 0;
+                } catch (e) {}
+            }
+            const hellBossMusic = this.assets.getAudio('hellBossMusic');
+            if (hellBossMusic && !hellBossMusic.paused) {
+                try {
+                    hellBossMusic.pause();
+                    hellBossMusic.currentTime = 0;
+                } catch (e) {}
+            }
+        }
+
         let musicName;
+        const levelData = CONFIG.levels[levelName];
         if (this.isBossFight) {
-            musicName = 'bossMusic';
+            // Use boss-specific music if defined, else default boss music
+            musicName = levelData.boss && levelData.boss.music ? levelData.boss.music : 'bossMusic';
+        } else if (levelData.theme && levelData.theme.music) {
+            // Use theme music if defined
+            musicName = levelData.theme.music;
         } else if (levelName === 'Test Zone Act 1') {
             musicName = 'act1Music';
         } else if (levelName === 'Test Zone Act 2') {
@@ -1464,6 +1631,9 @@ class Game {
         } else {
             musicName = 'bgMusic'; // Fallback
         }
+
+        console.log(`Switching music for level: ${levelName}, musicName: ${musicName}, isBossFight: ${this.isBossFight}`);
+        console.log('Audio loaded for', musicName, ':', !!this.assets.getAudio(musicName));
 
         this.currentMusic = this.assets.getAudio(musicName);
         if (this.currentMusic) {
@@ -1487,6 +1657,7 @@ class Game {
                 this.musicSwitching = false;
             }
         } else {
+            console.log('No audio object for', musicName);
             this.musicSwitching = false;
         }
     }
@@ -1590,6 +1761,13 @@ class Game {
             // Save current progress
             this.saveProgress(this.currentLevel);
             
+            // Stop any current music before loading new level
+            if (this.currentMusic) {
+                try { this.currentMusic.pause(); this.currentMusic.currentTime = 0; } catch (e) {}
+                this.currentMusic = null;
+            }
+            this.musicSwitching = false;
+            
             // Load next level
             this.currentLevel = nextLevel;
             this.loadLevelData(nextLevel);
@@ -1609,6 +1787,7 @@ class Game {
             this.cameraX = 0;
             this.state = 'zone';
             this.hasSwitchedToGameMusic = false; // Reset music switching flag
+            this.isBossFight = false; // Reset boss fight state
             setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
         } else {
             // Game complete!
@@ -1649,6 +1828,9 @@ class Game {
         this.victoryTimer = 0;
         this.timer = 0;
         this.scatteredRings = [];
+
+        // Add this line to initialize pits in the constructor
+        this.pits = [];
 
         // Load level data
         this.loadLevelData(currentLevel);
@@ -1941,6 +2123,9 @@ loop() {
             }
             // Check if player has reached boss area (Act 3)
             if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 2900) {
+                this.startBossFight();
+            }
+            if (this.currentLevel === 'Hell.exe Act 3' && this.boss && !this.isBossFight && this.player.x >= 1300) {
                 this.startBossFight();
             }
 
