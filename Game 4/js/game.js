@@ -256,7 +256,7 @@ const CONFIG = {
             next: null,
             enemies: [],
             boss: {
-                x: 1600,
+                x: 1200,
                 y: 350,
                 type: 'exeBoss',
                 sprite: 'hellBossSprite', // Use your 2011 x sprite here
@@ -281,7 +281,8 @@ const CONFIG = {
             theme: {
                 background: 'images/hill_sonicexe.jpg',
                 music: 'hellAct3Music'
-            }
+            },
+            boss: { x: 1500, y: 350, sprite: 'hellBossSprite', health: 12, music: 'hellBossMusic' }
         }
     }
 };
@@ -798,7 +799,7 @@ class Boss {
         this.assets = assets;
         this.width = 80;  // Bigger than regular enemies
         this.height = 60;
-        this.speed = 1.5; // Slower than regular enemies
+        this.speed = 3.0; // Very fast movement
         
         // Movement
         this.startX = this.x;
@@ -807,11 +808,11 @@ class Boss {
         
         // State
         this.isAlive = true;
-        this.health = 8; // Takes 8 hits to defeat
+        this.health = config.health || 8; // Takes hits to defeat
         
         // Attack
         this.shootTimer = 0;
-        this.shootCooldown = 180; // Shoot every 3 seconds (60fps)
+        this.shootCooldown = 120; // Shoot every 2 seconds (60fps)
         this.projectiles = [];
         
         // Animation
@@ -865,9 +866,14 @@ class Boss {
     }
     
     shoot() {
-        // Shoot projectile towards player (simplified - shoots downward)
-        const projectile = new BossProjectile(this.x + this.width / 2, this.y + this.height, 0, 3);
-        this.projectiles.push(projectile);
+        // Shoot projectiles in multiple directions
+        const centerX = this.x + this.width / 2;
+        const startY = this.y + this.height;
+        
+        // Shoot left, center, right
+        this.projectiles.push(new BossProjectile(centerX, startY, -2, 3)); // Left
+        this.projectiles.push(new BossProjectile(centerX, startY, 0, 3));  // Center
+        this.projectiles.push(new BossProjectile(centerX, startY, 2, 3));  // Right
     }
     
     draw(ctx, cameraX) {
@@ -1665,7 +1671,7 @@ class Game {
     // Start boss fight mode
     startBossFight() {
         this.isBossFight = true;
-        this.bossCameraLocked = true;
+        this.bossCameraLocked = false; // Will lock when boss becomes visible
         // Store arena bounds for invisible walls
         this.bossArenaLeft = this.cameraX;
         this.bossArenaRight = this.cameraX + this.canvas.width;
@@ -2125,7 +2131,7 @@ loop() {
             if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 2900) {
                 this.startBossFight();
             }
-            if (this.currentLevel === 'Hell.exe Act 3' && this.boss && !this.isBossFight && this.player.x >= 1300) {
+            if (this.currentLevel === 'Hell.exe Act 3' && this.boss && !this.isBossFight && this.player.x >= 1500) {
                 this.startBossFight();
             }
 
@@ -2198,7 +2204,7 @@ loop() {
             }
             // Camera system - completely locks when boss fight is active
             let targetCameraX;
-            if (this.bossCameraLocked && this.boss) {
+            if (this.bossCameraLocked && this.boss && this.currentLevel !== 'Hell.exe Act 3') {
                 // Camera is completely frozen during boss fight
                 // Don't change targetCameraX - keep it at current position
                 targetCameraX = this.cameraX;
@@ -2218,6 +2224,12 @@ loop() {
             // Draw boss
             if (this.boss) {
                 this.boss.draw(this.ctx, this.cameraX);
+            }
+            // Check if boss is visible to lock camera
+            if (this.isBossFight && this.boss && !this.bossCameraLocked) {
+                if (this.boss.x < this.cameraX + 200) {
+                    this.bossCameraLocked = true;
+                }
             }
             // Draw platforms
             for (let platform of this.platforms) {
