@@ -2073,6 +2073,7 @@ loop() {
             this.deathBlackScreenTimer--;
             if (this.deathBlackScreenTimer <= 0) {
                 if (this.player.lives > 0) {
+                    this.player.lives--;
                     this.restartLevel();
                 } else {
                     this.state = 'gameover';
