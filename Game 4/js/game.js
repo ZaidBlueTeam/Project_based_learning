@@ -87,6 +87,10 @@ const CONFIG = {
             hellBossSprite: 'images/2011X_Groovin.gif',
             ringSprite: 'images/ring.gif',  // Add ring sprite (use a GIF for animation if desired)
             testZoneBossSprite: 'images/eggman_sprite.gif',  // Add Test Zone boss sprite
+            invincibilityPowerUp: 'images/invincibilitybox.jpg',
+            speedPowerUp: 'images/speedshoesbox.jpg',
+            lifePowerUp: 'images/extralifebox.png',
+            hill_sonicexe: 'images/hill_sonicexe.jpg',
         },
         audio: {
             titleMusic: 'audio/title.mp3',
@@ -103,6 +107,8 @@ const CONFIG = {
             springSound: 'audio/spring.wav',
             hellAct1Music: 'audio/hillACT1.ogg',
             hellAct2Music: 'audio/hillACT2.ogg',
+            invincibilityMusic: 'audio/invincibility.ogg',
+            extraLifeSound: 'audio/ExtraLife.ogg',
             hellAct3Music: 'audio/hillACT3.ogg',
             hellBossMusic: 'audio/hillBOSS.wav'
         }
@@ -139,7 +145,12 @@ const CONFIG = {
                 { x: 1450, y: 330 },
                 { x: 2850, y: 430 }
             ],
-            goal: { x: 3800, y: 425 }
+            goal: { x: 3800, y: 425 },
+            powerUps: [
+                { x: 1000, y: 400, type: 'speed' },
+                { x: 2400, y: 400, type: 'invincibility' },
+                { x: 3600, y: 400, type: 'life' }
+            ]
         },
         'Test Zone Act 2': {
             next: 'Test Zone Act 3',
@@ -165,7 +176,12 @@ const CONFIG = {
                 { x: 650, y: 430 }, { x: 1250, y: 330 }, { x: 1850, y: 380 },
                 { x: 2450, y: 430 }, { x: 3050, y: 380 }
             ],
-            goal: { x: 3800, y: 425 }
+            goal: { x: 3800, y: 425 },
+            powerUps: [
+                { x: 1200, y: 400, type: 'speed' },
+                { x: 2200, y: 400, type: 'invincibility' },
+                { x: 3200, y: 400, type: 'life' }
+            ]
         },
         'Test Zone Act 3': {
             next: 'Hell.exe Act 1', // Continue to Hell.exe acts
@@ -219,9 +235,14 @@ const CONFIG = {
             ],
             goal: { x: 3900, y: 425 },
             theme: {
-                background: 'images/hill_sonicexe.jpg',
+                background: 'hill_sonicexe',
                 music: 'hellAct1Music'
-            }
+            },
+            powerUps: [
+                { x: 1000, y: 400, type: 'speed' },
+                { x: 2000, y: 400, type: 'invincibility' },
+                { x: 3000, y: 400, type: 'life' }
+            ]
         },
         'Hell.exe Act 2': {
             width: 4200,  // Increase level width to allow reaching the goal at x: 4100
@@ -248,9 +269,14 @@ const CONFIG = {
             ],
             goal: { x: 4000, y: 425 },
             theme: {
-                background: 'images/hill_sonicexe.jpg',
+                background: 'hill_sonicexe',
                 music: 'hellAct2Music'
-            }
+            },
+            powerUps: [
+                { x: 1200, y: 400, type: 'speed' },
+                { x: 2400, y: 400, type: 'invincibility' },
+                { x: 3600, y: 400, type: 'life' }
+            ]
         },
         'Hell.exe Act 3': {
             next: null,
@@ -279,7 +305,7 @@ const CONFIG = {
                 { x: 1600, width: 120 }, { x: 2800, width: 150 }, { x: 3900, width: 180 }
             ],
             theme: {
-                background: 'images/hill_sonicexe.jpg',
+                background: 'hill_sonicexe',
                 music: 'hellAct3Music'
             },
             boss: { x: 1500, y: 350, sprite: 'hellBossSprite', health: 12, music: 'hellBossMusic' }
@@ -330,12 +356,20 @@ class Player {
         this.lives = CONFIG.playerSettings.startLives;
         this.isInvincible = false;
         this.invincibilityTimer = 0;
+        this.isPowerInvincible = false;
+        this.powerInvincibilityTimer = 0;
+        this.isSpeedBoosted = false;
+        this.speedBoostTimer = 0;
         this.isDead = false;
         this.deathAnimationFrame = 0;
         this.isDeathAnimating = false;
         this.deathAnimVy = 0;
         this.deathAnimTimer = 0;
         this.hurtTimer = 0;
+    }
+
+    get effectiveMaxSpeed() {
+        return this.isSpeedBoosted ? this.maxSpeed * 1.5 : this.maxSpeed;
     }
 
     update(keys, ground, game) {
@@ -398,11 +432,11 @@ class Player {
         if (!this.spindashMode) {
             if (keys['a']) {
                 this.velocityX -= this.acceleration;
-                if (!this.isRolling && this.velocityX < -this.maxSpeed) this.velocityX = -this.maxSpeed;
+                if (!this.isRolling && this.velocityX < -this.effectiveMaxSpeed) this.velocityX = -this.effectiveMaxSpeed;
                 this.facing = -1;
             } else if (keys['d']) {
                 this.velocityX += this.acceleration;
-                if (!this.isRolling && this.velocityX > this.maxSpeed) this.velocityX = this.maxSpeed;
+                if (!this.isRolling && this.velocityX > this.effectiveMaxSpeed) this.velocityX = this.effectiveMaxSpeed;
                 this.facing = 1;
             } else {
                 if (!this.isRolling) {
@@ -533,7 +567,7 @@ class Player {
             this.animation = 'jump';
         } else if (!this.onGround) {
             this.animation = 'jump';
-        } else if (Math.abs(this.velocityX) > this.maxSpeed * 0.8) {
+        } else if (Math.abs(this.velocityX) > this.effectiveMaxSpeed * 0.8) {
             this.animation = 'run';
         } else if (Math.abs(this.velocityX) > 0.5) {
             this.animation = 'walk';
@@ -546,6 +580,26 @@ class Player {
             this.invincibilityTimer--;
             if (this.invincibilityTimer <= 0) {
                 this.isInvincible = false;
+            }
+        }
+
+        // Handle power-up invincibility timer
+        if (this.isPowerInvincible) {
+            this.powerInvincibilityTimer--;
+            if (this.powerInvincibilityTimer <= 0) {
+                this.isPowerInvincible = false;
+                // Switch back to normal music
+                game.switchBackToNormalMusic();
+            }
+        }
+
+        // Handle speed boost timer
+        if (this.isSpeedBoosted) {
+            this.speedBoostTimer--;
+            if (this.speedBoostTimer <= 0) {
+                this.isSpeedBoosted = false;
+                // Reset music speed
+                game.resetMusicSpeed();
             }
         }
 
@@ -566,7 +620,7 @@ class Player {
         }
     }
 
-    draw(cameraX) {
+    draw(ctx, cameraX) {
         const playerImg = document.getElementById('playerImg');
         // Flashing during invincibility (not during hurt)
         if (this.isInvincible && this.hurtTimer === 0 && Math.floor(this.invincibilityTimer / 5) % 2 === 1) {
@@ -613,6 +667,22 @@ class Player {
         playerImg.style.width = this.width + 'px';
         playerImg.style.height = this.height + 'px';
         playerImg.style.pointerEvents = 'none';
+
+        // Draw invincibility stars
+        if (this.isPowerInvincible) {
+            ctx.save();
+            ctx.fillStyle = 'yellow';
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 + Date.now() * 0.005;
+                const dist = 25;
+                const x = relativeX + this.width / 2 + Math.cos(angle) * dist;
+                const y = relativeY + this.height / 2 + Math.sin(angle) * dist;
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
         playerImg.style.zIndex = '10';
 
         if (this.facing < 0) {
@@ -646,7 +716,8 @@ class Player {
                     this.x + this.width / 2,
                     this.y + this.height / 2,
                     velocityX,
-                    velocityY
+                    velocityY,
+                    this.assets
                 );
                 game.scatteredRings.push(scatteredRing);
             }
@@ -661,6 +732,20 @@ class Player {
     makeInvincible() {
         this.isInvincible = true;
         this.invincibilityTimer = CONFIG.playerSettings.invincibilityFrames;
+    }
+    
+    applyInvincibilityPowerUp() {
+        this.isPowerInvincible = true;
+        this.powerInvincibilityTimer = 1200; // 20 seconds at 60fps
+    }
+    
+    addLife() {
+        this.lives++;
+    }
+    
+    applySpeedBoost() {
+        this.isSpeedBoosted = true;
+        this.speedBoostTimer = 1200; // 20 seconds at 60fps
     }
     
     die(game) {
@@ -694,7 +779,7 @@ class Player {
     }
     
     takeDamage(game) {
-        if (this.isInvincible || this.hurtTimer > 0) return;
+        if (this.isInvincible || this.isPowerInvincible || this.hurtTimer > 0) return;
         console.log('Player took damage! Rings before:', this.rings);
         if (this.rings > 0) {
             this.loseRings(game);
@@ -799,12 +884,19 @@ class Boss {
         this.assets = assets;
         this.width = 80;  // Bigger than regular enemies
         this.height = 60;
-        this.speed = 3.0; // Very fast movement
+        this.speed = 4.0; // Increased from 3.0 for more noticeable movement
+        
+        // Create HTML img element for animation
+        this.img = document.createElement('img');
+        this.img.style.position = 'absolute';
+        this.img.style.pointerEvents = 'none';
+        this.img.style.zIndex = '6';  // Above canvas (canvas is 5)
+        document.getElementById('gameContainer').appendChild(this.img);
         
         // Movement
         this.startX = this.x;
         this.direction = 1;  // 1 = right, -1 = left
-        this.patrolDistance = 300; // Moves further than regular enemies
+        this.patrolDistance = 500; // Increased from 300 for wider movement range
         
         // State
         this.isAlive = true;
@@ -833,13 +925,13 @@ class Boss {
         }
         
         // Keep boss within arena bounds (don't go off-screen during boss fight)
-        // Boss starts at x=3200, arena is approximately 2900-3800
-        if (this.x < 2900) {
-            this.x = 2900;
+        // Boss starts at x=3200, arena is approximately 2700-3900 (expanded for better movement)
+        if (this.x < 2700) {
+            this.x = 2700;
             this.direction = 1;
         }
-        if (this.x + this.width > 3800) {
-            this.x = 3800 - this.width;
+        if (this.x + this.width > 3900) {
+            this.x = 3900 - this.width;
             this.direction = -1;
         }
         
@@ -877,18 +969,33 @@ class Boss {
     }
     
     draw(ctx, cameraX) {
-        if (!this.isAlive) return;
+        if (!this.isAlive) {
+            this.img.style.display = 'none';
+            return;
+        } else {
+            this.img.style.display = 'block';
+        }
         
         if (this.sprite) {
-            // Draw custom sprite
-            const img = this.assets.getImage(this.sprite);
-            if (img) {
-                ctx.drawImage(img, this.x - cameraX, this.y, this.width, this.height);
-            } else {
-                // Fallback to default if image not loaded
-                this.drawDefault(ctx, cameraX);
+            // Set img src if changed
+            const path = CONFIG.assets.images[this.sprite];
+            if (!this.img.src.endsWith(path)) {
+                this.img.src = path;
             }
+            
+            // Position the img element
+            const gameContainer = document.getElementById('gameContainer');
+            const containerRect = gameContainer.getBoundingClientRect();
+            const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
+            const relativeX = this.x - cameraX;
+            const relativeY = this.y;
+            this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
+            this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+            this.img.style.width = this.width + 'px';
+            this.img.style.height = this.height + 'px';
         } else {
+            // Fallback to default if no sprite
+            this.img.style.display = 'none';
             this.drawDefault(ctx, cameraX);
         }
         
@@ -967,6 +1074,7 @@ class Boss {
     
     destroy() {
         this.isAlive = false;
+        this.img.remove();
         // Create explosion effect or victory animation
     }
 }
@@ -1030,6 +1138,14 @@ class Ring {
         this.height = CONFIG.ring.height;
         this.collected = false;
         this.animationFrame = 0;
+        
+        // Create HTML img element for animation
+        this.img = document.createElement('img');
+        this.img.src = 'images/ring.gif';
+        this.img.style.position = 'absolute';
+        this.img.style.pointerEvents = 'none';
+        this.img.style.zIndex = '1';
+        document.getElementById('gameContainer').appendChild(this.img);
     }
     
     update() {
@@ -1037,36 +1153,21 @@ class Ring {
         this.animationFrame = (this.animationFrame + 0.2) % 360;
     }
     
-draw(ctx, cameraX) {
-    if (this.collected) return;
-    
-    // Draw custom ring sprite
-    const ringImg = this.assets.getImage('ringSprite');
-    if (ringImg) {
-        ctx.drawImage(ringImg, this.x - cameraX, this.y, this.width, this.height);
-    } else {
-        // Fallback: draw the original animated circle if sprite fails to load
-        ctx.save();
-        ctx.translate((this.x - cameraX) + this.width / 2, this.y + this.height / 2);
-        ctx.rotate(this.animationFrame * Math.PI / 180);
+    draw(ctx, cameraX) {
+        if (this.collected) return;
         
-        ctx.fillStyle = 'gold';
-        ctx.strokeStyle = 'orange';
-        ctx.lineWidth = 3;
-        
-        ctx.beginPath();
-        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.width / 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
+        // Position the img element
+        const gameContainer = document.getElementById('gameContainer');
+        const containerRect = gameContainer.getBoundingClientRect();
+        const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
+        const relativeX = this.x - cameraX;
+        const relativeY = this.y;
+        this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
+        this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+        this.img.style.width = this.width + 'px';
+        this.img.style.height = this.height + 'px';
+        this.img.style.display = 'block';
     }
-}
     
     checkCollision(player) {
         if (this.collected) return false;
@@ -1078,16 +1179,18 @@ draw(ctx, cameraX) {
     }
     
     collect() {
+        this.img.remove();
         this.collected = true;
     }
 }
 
 class ScatteredRing {
-    constructor(x, y, velocityX, velocityY) {
+    constructor(x, y, velocityX, velocityY, assets) {
         this.x = x;
         this.y = y;
         this.velocityX = velocityX;
         this.velocityY = velocityY;
+        this.assets = assets;
         this.width = CONFIG.ring.width;
         this.height = CONFIG.ring.height;
         this.collected = false;
@@ -1095,6 +1198,14 @@ class ScatteredRing {
         this.lifetime = 256;  // About 4 seconds at 60fps (like real Sonic)
         this.canBeCollected = false; // Can't collect immediately after scattering
         this.collectionDelay = 30; // 0.5 seconds at 60fps before you can collect
+        
+        // Create HTML img element for animation
+        this.img = document.createElement('img');
+        this.img.src = 'images/ring.gif';
+        this.img.style.position = 'absolute';
+        this.img.style.pointerEvents = 'none';
+        this.img.style.zIndex = '1';
+        document.getElementById('gameContainer').appendChild(this.img);
     }
 
     update(groundY) {
@@ -1136,32 +1247,30 @@ class ScatteredRing {
         // Countdown lifetime
         this.lifetime--;
         if (this.lifetime <= 0) {
+            this.img.remove();
             this.collected = true;  // Remove after time
         }
+    }
+
+    collect() {
+        this.img.remove();
+        this.collected = true;
     }
 
     draw(ctx, cameraX) {
         if (this.collected) return;
         
-        ctx.save();
-        ctx.translate((this.x - cameraX) + this.width / 2, this.y + this.height / 2);
-        ctx.rotate(this.animationFrame * Math.PI / 180);
-        
-        ctx.fillStyle = 'gold';
-        ctx.strokeStyle = 'orange';
-        ctx.lineWidth = 3;
-        
-        ctx.beginPath();
-        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.width / 4, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
+        // Position the img element
+        const gameContainer = document.getElementById('gameContainer');
+        const containerRect = gameContainer.getBoundingClientRect();
+        const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
+        const relativeX = this.x - cameraX;
+        const relativeY = this.y;
+        this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
+        this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+        this.img.style.width = this.width + 'px';
+        this.img.style.height = this.height + 'px';
+        this.img.style.display = 'block';
     }
 
     checkCollision(player) {
@@ -1175,6 +1284,64 @@ class ScatteredRing {
     
     collect() {
         this.collected = true;
+    }
+}
+
+// ============================
+// POWERUP CLASS
+// ============================
+class PowerUp {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'speed', 'invincibility', 'life'
+        this.width = 30;
+        this.height = 30;
+        this.collected = false;
+    }
+
+    checkCollision(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+
+    draw(ctx, cameraX, game) {
+        if (this.collected) return;
+
+        // Draw power-up sprite
+        let spriteName;
+        if (this.type === 'speed') spriteName = 'speedPowerUp';
+        else if (this.type === 'invincibility') spriteName = 'invincibilityPowerUp';
+        else if (this.type === 'life') spriteName = 'lifePowerUp';
+        
+        const sprite = game.assets.getImage(spriteName);
+        if (sprite) {
+            ctx.drawImage(sprite, this.x - cameraX, this.y, this.width, this.height);
+        } else {
+            // Fallback: draw colored box with text label
+            ctx.fillStyle = this.type === 'speed' ? 'blue' : this.type === 'invincibility' ? 'yellow' : 'green';
+            ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+            
+            // Add text label
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            const label = this.type === 'speed' ? 'SPD' : this.type === 'invincibility' ? 'INV' : 'LIFE';
+            ctx.fillText(label, this.x - cameraX + this.width / 2, this.y + this.height / 2 + 4);
+            ctx.textAlign = 'left'; // Reset text alignment
+        }
+
+        // Check for collection (only if jumping or spindashing)
+        if (this.checkCollision(game.player)) {
+            const isJumpingDown = !game.player.onGround && game.player.velocityY > 0;
+            const isRolling = game.player.isRolling;
+            if (isJumpingDown || isRolling) {
+                this.collected = true;
+                game.applyPowerUp(this.type);
+            }
+        }
     }
 }
 
@@ -1538,6 +1705,9 @@ class Game {
         const levelData = CONFIG.levels[levelName];
         if (!levelData) return;
 
+        // Set current background
+        this.currentBackground = levelData.theme ? levelData.theme.background : 'background';
+
         // Set level width (use level-specific if available, else default)
         this.levelWidth = levelData.width || CONFIG.level.width;
 
@@ -1562,6 +1732,9 @@ class Game {
 
         // Create rings
         this.rings = levelData.rings.map(r => new Ring(r.x, r.y, this.assets));
+
+        // Create power-ups
+        this.powerUps = (levelData.powerUps || []).map(p => new PowerUp(p.x, p.y, p.type));
 
         // Create platforms
         this.platforms = levelData.platforms.map(p => 
@@ -1927,6 +2100,98 @@ class Game {
         this.state = 'game';
     }
 
+    applyPowerUp(type) {
+        if (type === 'invincibility') {
+            this.player.applyInvincibilityPowerUp();
+            console.log('🎯 Collected invincibility power-up!');
+            // Switch to invincibility music
+            this.switchToInvincibilityMusic();
+        } else if (type === 'life') {
+            this.player.addLife();
+            console.log('❤️ Collected extra life! Lives:', this.player.lives);
+            // Play extra life sound
+            const extraLifeSound = this.assets.getAudio('extraLifeSound');
+            if (extraLifeSound) {
+                try {
+                    extraLifeSound.currentTime = 0;
+                    extraLifeSound.play().catch(e => {
+                        if (e.name !== 'AbortError') {
+                            console.warn('Extra life sound play error:', e);
+                        }
+                    });
+                } catch (e) {
+                    // Ignore play errors
+                }
+            }
+        } else if (type === 'speed') {
+            this.player.applySpeedBoost();
+            console.log('⚡ Collected speed shoes! Running faster!');
+            // Speed up the music
+            this.speedUpMusic();
+        }
+        // Add more power-up types here as needed
+    }
+
+    switchToInvincibilityMusic() {
+        const invincibilityMusic = this.assets.getAudio('invincibilityMusic');
+        if (!invincibilityMusic) {
+            console.log('Invincibility music not found, skipping music switch');
+            return;
+        }
+        
+        if (!this.musicSwitching && this.currentMusic !== invincibilityMusic) {
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.pause();
+                } catch (e) {
+                    // Ignore pause errors
+                }
+            }
+            this.currentMusic = invincibilityMusic;
+            if (this.currentMusic) {
+                try {
+                    this.currentMusic.currentTime = 0;
+                    this.currentMusic.loop = true; // Loop invincibility music
+                    const playPromise = this.currentMusic.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            if (error.name !== 'AbortError') {
+                                console.warn('Invincibility music play error:', error);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    // Ignore play errors
+                }
+            }
+        }
+    }
+
+    switchBackToNormalMusic() {
+        // Switch back to the appropriate level music
+        this.switchMusicForLevel(this.currentLevel);
+    }
+
+    speedUpMusic() {
+        if (this.currentMusic && this.currentMusic.playbackRate !== undefined) {
+            try {
+                this.currentMusic.playbackRate = 1.5; // Speed up music by 50%
+            } catch (e) {
+                console.warn('Failed to speed up music:', e);
+            }
+        }
+    }
+
+    resetMusicSpeed() {
+        if (this.currentMusic && this.currentMusic.playbackRate !== undefined) {
+            try {
+                this.currentMusic.playbackRate = 1.0; // Reset to normal speed
+            } catch (e) {
+                console.warn('Failed to reset music speed:', e);
+            }
+        }
+    }
+
 drawTitle() {
     // OLD: this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
     // NEW:
@@ -1948,6 +2213,12 @@ drawTitle() {
         // Background is an animated GIF positioned behind the canvas
         const bgImage = document.getElementById('backgroundImg');
         if (!bgImage) return;
+        
+        // Set background image if not set
+        const img = this.assets.getImage(this.currentBackground);
+        if (img) {
+            bgImage.style.backgroundImage = `url(${img.src})`;
+        }
         
         // Parallax scrolling - background moves slower than camera for depth
         const parallaxSpeed = 0.5;
@@ -2059,7 +2330,7 @@ loop() {
             for (let ring of this.rings) ring.draw(this.ctx);
             for (let enemy of this.enemies) enemy.draw(this.ctx);
             this.player.update(this.keys, this.ground, this);
-            this.player.draw(this.cameraX);
+            this.player.draw(this.ctx, this.cameraX);
             this.drawHUD();
             document.getElementById('playerImg').style.display = 'block';
         } else if (this.player.isDead) {
@@ -2117,12 +2388,18 @@ loop() {
                 if (enemy.checkCollision(this.player)) {
                     const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
                     const isRolling = this.player.isRolling;
+                    const hasPowerInvincibility = this.player.isPowerInvincible;
+                    
                     if (isJumpingDown) {
                         enemy.destroy();
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else if (isRolling) {
                         enemy.destroy();
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
+                    } else if (hasPowerInvincibility) {
+                        enemy.destroy();
+                        // Optional: add bounce effect when destroying enemy while invincible
+                        this.player.velocityY = CONFIG.player.jumpStrength * 0.3;
                     } else {
                         this.player.takeDamage(this);
                     }
@@ -2142,8 +2419,13 @@ loop() {
                 // Check boss projectiles
                 for (let projectile of this.boss.projectiles) {
                     if (projectile.checkCollision(this.player)) {
-                        this.player.takeDamage(this);
-                        projectile.destroy();
+                        const hasPowerInvincibility = this.player.isPowerInvincible;
+                        if (hasPowerInvincibility) {
+                            projectile.destroy();
+                        } else {
+                            this.player.takeDamage(this);
+                            projectile.destroy();
+                        }
                     }
                 }
                 // Check player attack on boss
@@ -2221,6 +2503,7 @@ loop() {
             this.drawBackground();
             this.drawGround();
             for (let ring of this.rings) ring.draw(this.ctx, this.cameraX);
+            for (let powerUp of this.powerUps) powerUp.draw(this.ctx, this.cameraX, this);
             for (let enemy of this.enemies) enemy.draw(this.ctx, this.cameraX);
             // Draw boss
             if (this.boss) {
@@ -2248,7 +2531,7 @@ loop() {
             for (let ring of this.scatteredRings) {
                 ring.draw(this.ctx, this.cameraX);
             }
-            this.player.draw(this.cameraX);
+            this.player.draw(this.ctx, this.cameraX);
             this.drawHUD();
             // Ensure current level music is playing (only if not switching music)
             if (!this.musicSwitching && this.currentMusic && this.currentMusic.paused && this.state === 'game') {
@@ -2308,8 +2591,8 @@ loop() {
         const victoryMusic = this.assets.getAudio('victoryMusic');
         const musicFinished = victoryMusic && (victoryMusic.ended || victoryMusic.currentTime >= victoryMusic.duration - 0.1);
         
-        // Wait for music to finish OR max 10 seconds (600 frames) as backup
-        if (musicFinished || this.victoryTimer > 600) {
+        // Wait for music to finish OR max 20 seconds (1200 frames) as backup
+        if (musicFinished || this.victoryTimer > 1200) {
             this.nextLevel();
         }
         this.drawVictory();
