@@ -308,7 +308,7 @@ const CONFIG = {
                 background: 'hill_sonicexe',
                 music: 'hellAct3Music'
             },
-            boss: { x: 1500, y: 350, sprite: 'hellBossSprite', health: 12, music: 'hellBossMusic' }
+            boss: { x: 3200, y: 350, sprite: 'hellBossSprite', health: 12, music: 'hellBossMusic' }
         }
     }
 };
@@ -984,13 +984,10 @@ class Boss {
             }
             
             // Position the img element
-            const gameContainer = document.getElementById('gameContainer');
-            const containerRect = gameContainer.getBoundingClientRect();
-            const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
             const relativeX = this.x - cameraX;
             const relativeY = this.y;
-            this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
-            this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+            this.img.style.left = relativeX + 'px';
+            this.img.style.top = relativeY + 'px';
             this.img.style.width = this.width + 'px';
             this.img.style.height = this.height + 'px';
         } else {
@@ -1144,7 +1141,7 @@ class Ring {
         this.img.src = 'images/ring.gif';
         this.img.style.position = 'absolute';
         this.img.style.pointerEvents = 'none';
-        this.img.style.zIndex = '1';
+        this.img.style.zIndex = '6';
         document.getElementById('gameContainer').appendChild(this.img);
     }
     
@@ -1157,13 +1154,10 @@ class Ring {
         if (this.collected) return;
         
         // Position the img element
-        const gameContainer = document.getElementById('gameContainer');
-        const containerRect = gameContainer.getBoundingClientRect();
-        const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
         const relativeX = this.x - cameraX;
         const relativeY = this.y;
-        this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
-        this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+        this.img.style.left = relativeX + 'px';
+        this.img.style.top = relativeY + 'px';
         this.img.style.width = this.width + 'px';
         this.img.style.height = this.height + 'px';
         this.img.style.display = 'block';
@@ -1204,7 +1198,7 @@ class ScatteredRing {
         this.img.src = 'images/ring.gif';
         this.img.style.position = 'absolute';
         this.img.style.pointerEvents = 'none';
-        this.img.style.zIndex = '1';
+        this.img.style.zIndex = '6';
         document.getElementById('gameContainer').appendChild(this.img);
     }
 
@@ -1261,29 +1255,22 @@ class ScatteredRing {
         if (this.collected) return;
         
         // Position the img element
-        const gameContainer = document.getElementById('gameContainer');
-        const containerRect = gameContainer.getBoundingClientRect();
-        const canvasRect = gameContainer.querySelector('canvas').getBoundingClientRect();
         const relativeX = this.x - cameraX;
         const relativeY = this.y;
-        this.img.style.left = (canvasRect.left - containerRect.left + relativeX) + 'px';
-        this.img.style.top = (canvasRect.top - containerRect.top + relativeY) + 'px';
+        this.img.style.left = relativeX + 'px';
+        this.img.style.top = relativeY + 'px';
         this.img.style.width = this.width + 'px';
         this.img.style.height = this.height + 'px';
         this.img.style.display = 'block';
     }
 
     checkCollision(player) {
-        if (this.collected || !this.canBeCollected) return false; // Can't collect until delay passes
+        if (this.collected || !this.canBeCollected) return false;
         
         return player.x < this.x + this.width &&
                player.x + player.width > this.x &&
                player.y < this.y + this.height &&
                player.y + player.height > this.y;
-    }
-    
-    collect() {
-        this.collected = true;
     }
 }
 
@@ -1704,6 +1691,18 @@ class Game {
     loadLevelData(levelName) {
         const levelData = CONFIG.levels[levelName];
         if (!levelData) return;
+
+        // Clear old scattered rings from previous levels and remove their DOM elements
+        for (let ring of this.scatteredRings) {
+            if (ring.img) ring.img.remove();
+        }
+        this.scatteredRings = [];
+
+        // Clear old rings from previous levels and remove their DOM elements
+        for (let ring of this.rings || []) {
+            if (ring.img) ring.img.remove();
+        }
+        this.rings = [];
 
         // Set current background
         this.currentBackground = levelData.theme ? levelData.theme.background : 'background';
@@ -2192,14 +2191,22 @@ class Game {
         }
     }
 
-drawTitle() {
-    // OLD: this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
-    // NEW:
-    this.ctx.drawImage(this.assets.getImage('titleScreen'), 0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = 'white';
-    this.ctx.font = '24px Arial';
-    this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
-}
+    hideRingElements() {
+        // Hide all ring img elements
+        const ringElements = document.querySelectorAll('#gameContainer img[src*="ring.gif"]');
+        ringElements.forEach(img => {
+            img.style.display = 'none';
+        });
+    }
+
+    drawTitle() {
+        // OLD: this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
+        // NEW:
+        this.ctx.drawImage(this.assets.getImage('titleScreen'), 0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'white';
+        this.ctx.font = '24px Arial';
+        this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
+    }
 
     drawZone() {
         this.ctx.fillStyle = 'black';
@@ -2310,11 +2317,17 @@ loop() {
             }
         }
         document.getElementById('playerImg').style.display = 'none';
+        
+        // Hide all ring elements during title screen
+        this.hideRingElements();
     } else if (this.state === 'zone') {
         this.drawZone();
         // Pause music during zone transition
         if (this.currentMusic) this.currentMusic.pause();
         document.getElementById('playerImg').style.display = 'none';
+        
+        // Hide all ring elements during zone transition
+        this.hideRingElements();
     } else if (this.state === 'game') {
         // Switch to game music on first entry to game state
         if (!this.hasSwitchedToGameMusic) {
