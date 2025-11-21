@@ -65,6 +65,12 @@ const CONFIG = {
         color: 'purple'
     },
 
+    checkpoint: {
+        width: 40,
+        height: 80,
+        color: 'yellow'
+    },
+
     level: {
         width: 4000,
         completeMessage: "ZONE CLEARED!"
@@ -150,6 +156,16 @@ const CONFIG = {
                 { x: 1000, y: 400, type: 'speed' },
                 { x: 2400, y: 400, type: 'invincibility' },
                 { x: 3600, y: 400, type: 'life' }
+            ],
+            checkpoints: [
+                { x: 600, y: 425 },
+                { x: 1800, y: 425 },
+                { x: 3000, y: 425 }
+            ],
+            pits: [
+                { x: 1200, width: 100 },
+                { x: 2200, width: 120 },
+                { x: 3400, width: 150 }
             ]
         },
         'Test Zone Act 2': {
@@ -181,6 +197,16 @@ const CONFIG = {
                 { x: 1200, y: 400, type: 'speed' },
                 { x: 2200, y: 400, type: 'invincibility' },
                 { x: 3200, y: 400, type: 'life' }
+            ],
+            checkpoints: [
+                { x: 800, y: 425 },
+                { x: 2000, y: 425 },
+                { x: 3200, y: 425 }
+            ],
+            pits: [
+                { x: 1500, width: 120 },
+                { x: 2700, width: 150 },
+                { x: 3500, width: 180 }
             ]
         },
         'Test Zone Act 3': {
@@ -242,6 +268,11 @@ const CONFIG = {
                 { x: 1000, y: 400, type: 'speed' },
                 { x: 2000, y: 400, type: 'invincibility' },
                 { x: 3000, y: 400, type: 'life' }
+            ],
+            checkpoints: [
+                { x: 1000, y: 425 },
+                { x: 2200, y: 425 },
+                { x: 3400, y: 425 }
             ]
         },
         'Hell.exe Act 2': {
@@ -276,6 +307,11 @@ const CONFIG = {
                 { x: 1200, y: 400, type: 'speed' },
                 { x: 2400, y: 400, type: 'invincibility' },
                 { x: 3600, y: 400, type: 'life' }
+            ],
+            checkpoints: [
+                { x: 1200, y: 425 },
+                { x: 2400, y: 425 },
+                { x: 3600, y: 425 }
             ]
         },
         'Hell.exe Act 3': {
@@ -766,9 +802,10 @@ class Player {
         console.log('Sonic died! Lives remaining:', this.lives);
     }
     
-    respawn() {
-        this.x = CONFIG.player.startX;
-        this.y = CONFIG.player.startY;
+    respawn(game) {
+        // Respawn at checkpoint if available, otherwise at start
+        this.x = game.checkpointX !== undefined ? game.checkpointX : CONFIG.player.startX;
+        this.y = game.checkpointY !== undefined ? game.checkpointY : CONFIG.player.startY;
         this.velocityX = 0;
         this.velocityY = 0;
         this.rings = 0;
@@ -1479,6 +1516,53 @@ class Goal {
     }
 }
 
+// ============================
+// CHECKPOINT CLASS
+// ============================
+class Checkpoint {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = CONFIG.checkpoint.width;
+        this.height = CONFIG.checkpoint.height;
+        this.activated = false;
+    }
+    
+    draw(ctx, cameraX) {
+        // Draw checkpoint flag - yellow when inactive, green when activated
+        ctx.fillStyle = this.activated ? '#00FF00' : CONFIG.checkpoint.color;
+        ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+        
+        // Draw flag pole
+        ctx.fillStyle = '#8B4513'; // Brown pole
+        ctx.fillRect(this.x - cameraX + this.width/2 - 2, this.y + this.height, 4, 20);
+        
+        // Draw flag
+        ctx.fillStyle = this.activated ? '#00FF00' : '#FFFF00';
+        ctx.beginPath();
+        ctx.moveTo(this.x - cameraX + this.width/2, this.y + this.height - 5);
+        ctx.lineTo(this.x - cameraX + this.width/2 + 15, this.y + this.height - 10);
+        ctx.lineTo(this.x - cameraX + this.width/2, this.y + this.height - 15);
+        ctx.closePath();
+        ctx.fill();
+    }
+    
+    update() {
+        // Checkpoint doesn't need animation
+    }
+    
+    checkCollision(player) {
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+    
+    activate() {
+        this.activated = true;
+    }
+}
+
 class AssetManager {
     constructor() {
         this.images = {};
@@ -1698,6 +1782,10 @@ class Game {
         this.player.isPowerInvincible = false;
         this.player.powerInvincibilityTimer = 0;
 
+        // Reset checkpoint for new level
+        this.checkpointX = undefined;
+        this.checkpointY = undefined;
+
         // Clear old scattered rings from previous levels and remove their DOM elements
         for (let ring of this.scatteredRings) {
             if (ring.img) ring.img.remove();
@@ -1754,6 +1842,9 @@ class Game {
 
         // Create goal (if level has one)
         this.goal = levelData.goal ? new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height) : null;
+
+        // Create checkpoints (if level has them)
+        this.checkpoints = (levelData.checkpoints || []).map(c => new Checkpoint(c.x, this.ground.y - CONFIG.checkpoint.height));
 
         // Don't auto-start boss fight - wait for player to reach boss area
         // Boss fight will be triggered when player reaches boss position
@@ -1996,6 +2087,10 @@ class Game {
         this.bossCameraLocked = false; // Track if camera is locked to boss
         this.musicSwitching = false; // Prevent concurrent music operations
         this.hasSwitchedToGameMusic = false; // Track if we've switched to game music
+
+        // Checkpoint system
+        this.checkpointX = undefined;
+        this.checkpointY = undefined;
 
         this.player = new Player(assetManager);
         this.ground = {
@@ -2363,8 +2458,11 @@ loop() {
             this.deathBlackScreenTimer--;
             if (this.deathBlackScreenTimer <= 0) {
                 if (this.player.lives > 0) {
-                    this.player.lives--;
-                    this.restartLevel();
+                    this.player.lives--; // Still lose a life
+                    // Respawn at checkpoint instead of restarting level
+                    this.player.respawn(this);
+                    this.deathBlackScreenTimer = 0;
+                    this.state = 'game';
                 } else {
                     this.state = 'gameover';
                 }
@@ -2383,6 +2481,18 @@ loop() {
             for (let spring of this.springs) {
                 spring.update();
             }
+            // Update checkpoints
+            for (let checkpoint of this.checkpoints) {
+                checkpoint.update();
+                if (checkpoint.checkCollision(this.player) && !checkpoint.activated) {
+                    checkpoint.activate();
+                    // Save checkpoint position for respawn
+                    this.checkpointX = checkpoint.x;
+                    this.checkpointY = checkpoint.y;
+                    console.log('Checkpoint activated at x:', checkpoint.x);
+                }
+            }
+            
             // Update goal (if exists)
             if (this.goal) {
                 this.goal.update();
@@ -2541,6 +2651,10 @@ loop() {
             // Draw springs
             for (let spring of this.springs) {
                 spring.draw(this.ctx, this.cameraX);
+            }
+            // Draw checkpoints
+            for (let checkpoint of this.checkpoints) {
+                checkpoint.draw(this.ctx, this.cameraX);
             }
             // Draw goal (if exists)
             if (this.goal) {
