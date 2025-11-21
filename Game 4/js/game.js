@@ -402,6 +402,10 @@ class Player {
         this.deathAnimVy = 0;
         this.deathAnimTimer = 0;
         this.hurtTimer = 0;
+        
+        // Pit falling mechanics
+        this.isPitFalling = false;
+        this.pitFallDistance = 0;
     }
 
     get effectiveMaxSpeed() {
@@ -426,8 +430,27 @@ class Player {
                 this.isDeathAnimating = false;
                 this.isDead = true;
             }
-            return;
+            return; // Skip normal update during death animation
         }
+        
+        // If pit falling, don't allow normal movement but let gravity work naturally
+        if (this.isPitFalling) {
+            // Only apply gravity, no horizontal movement or other controls
+            this.velocityY += this.gravity;
+            this.y += this.velocityY;
+            
+            // Track fall distance for death trigger
+            this.pitFallDistance += Math.abs(this.velocityY);
+            
+            // Die when fallen far enough (about 2 screen heights)
+            if (this.pitFallDistance > game.canvas.height * 2) {
+                this.isPitFalling = false;
+                this.die(game);
+            }
+            return; // Skip normal controls during pit fall
+        }
+
+        // Normal update logic continues...
 
         // Spindash: Press 's' to crouch, hold to charge, release to dash
         // MUST be checked BEFORE horizontal movement to prevent moving while charging
@@ -526,30 +549,59 @@ class Player {
             }
         }
         
-        // If not on platform, check ground
+        // If not on platform, check ground (but not if over a pit)
         if (!onPlatform && this.y + this.height >= ground.y) {
-            this.y = ground.y - this.height;
-            this.velocityY = 0;
-            this.onGround = true;
-            if (this.animation === 'spindash') {
-                this.animation = 'idle';
-                this.spindashMode = false;
-                this.spindashTimer = 0;
+            // Check if player is over a pit - if so, don't land on ground
+            // Use a narrower hitbox for pit detection (player's center ± 20 pixels)
+            let overPit = false;
+            const playerCenterX = this.x + this.width / 2;
+            for (let pit of game.pits) {
+                const pitLeft = pit.x;
+                const pitRight = pit.x + pit.width;
+                // Only trigger if player's center is within the pit bounds
+                if (playerCenterX >= pitLeft && playerCenterX <= pitRight) {
+                    overPit = true;
+                    break;
+                }
+            }
+            
+            if (!overPit) {
+                this.y = ground.y - this.height;
+                this.velocityY = 0;
+                this.onGround = true;
+                if (this.animation === 'spindash') {
+                    this.animation = 'idle';
+                    this.spindashMode = false;
+                    this.spindashTimer = 0;
+                }
+            } else {
+                this.onGround = false;
             }
         } else if (!onPlatform) {
             this.onGround = false;
         }
         
-        // Check pit death
-        if (!this.onGround && this.y + this.height >= ground.y) {
+        // Check if player is falling into a pit (when they would normally land on ground but can't)
+        if (!onPlatform && this.y + this.height >= ground.y && this.velocityY >= 0) {
+            // Check if player is over a pit using center-based detection
+            const playerCenterX = this.x + this.width / 2;
             for (let pit of game.pits) {
-                if (this.x + this.width > pit.x && this.x < pit.x + pit.width) {
-                    // Fell into pit - instant death
-                    this.die(game);
+                const pitLeft = pit.x;
+                const pitRight = pit.x + pit.width;
+                // Only trigger if player's center is within the pit bounds
+                if (playerCenterX >= pitLeft && playerCenterX <= pitRight) {
+                    // Fell into pit - start falling animation
+                    if (!this.isPitFalling) {
+                        this.isPitFalling = true;
+                        this.pitFallDistance = 0;
+                        console.log('Fell into pit! Starting pit fall...');
+                    }
                     break;
                 }
             }
         }
+        
+
         
         // Clear rolling flag when slowing down (not when landing!)
         if (this.isRolling && Math.abs(this.velocityX) < 2) {
@@ -812,7 +864,31 @@ class Player {
         this.isDead = false;
         this.hurtTimer = 0;
         this.isRolling = false; // Clear rolling flag on respawn
+        this.isPitFalling = false; // Reset pit falling state
+        this.pitFallDistance = 0; // Reset pit fall distance
+        
+        // Clear power-up effects on respawn
+        this.isPowerInvincible = false;
+        this.powerInvincibilityTimer = 0;
+        this.isSpeedBoosted = false;
+        this.speedBoostTimer = 0;
+        
+        // Reset music speed to normal
+        if (game) {
+            game.resetMusicSpeed();
+        }
+        
         this.makeInvincible();
+        
+        // Reset music to beginning when respawning (like when dying without rings)
+        if (game && game.currentMusic) {
+            try {
+                game.currentMusic.currentTime = 0;
+                game.currentMusic.play();
+            } catch (e) {
+                // Ignore music restart errors
+            }
+        }
     }
     
     takeDamage(game) {
@@ -853,8 +929,26 @@ class Enemy {
         this.isAlive = true;
     }
     
-    update() {
+    update(game) {
         if (!this.isAlive) return;
+        
+        // Check for pits ahead and turn around if approaching one
+        const checkDistance = 50; // Look ahead distance
+        const pitAhead = game.pits.some(pit => {
+            const pitLeft = pit.x;
+            const pitRight = pit.x + pit.width;
+            
+            // Check if enemy is approaching a pit from either direction
+            if (this.direction === 1) { // Moving right
+                return this.x + this.width + checkDistance >= pitLeft && this.x + this.width <= pitLeft;
+            } else { // Moving left
+                return this.x - checkDistance <= pitRight && this.x >= pitRight;
+            }
+        });
+        
+        if (pitAhead) {
+            this.direction *= -1; // Turn around
+        }
         
         // Patrol back and forth
         this.x += this.speed * this.direction;
@@ -1728,24 +1822,20 @@ class Game {
     // Database integration methods
     async loadProgress(levelName) {
         try {
-            const response = await fetch(`http://localhost:3000/api/progress/${encodeURIComponent(levelName)}`);
-            if (response.ok) {
-                const progress = await response.json();
+            // Load from sessionStorage instead of localStorage (resets on page refresh)
+            const savedProgress = sessionStorage.getItem('sonic_session_progress');
+            if (savedProgress) {
+                const progress = JSON.parse(savedProgress);
                 this.player.lives = progress.lives;
                 this.score = progress.score || 0;
-                this.serverAvailable = true; // Server is available
-                console.log(`📥 Loaded progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
+                console.log(`📥 Loaded global progress: ${this.player.lives} lives, ${this.score} cumulative score`);
             } else {
-                console.log(`📝 No saved progress for ${levelName}, using defaults`);
+                console.log(`📝 No saved progress found, using defaults`);
                 this.player.lives = 3;
                 this.score = 0;
-                this.serverAvailable = true; // Server responded, just no data
             }
         } catch (error) {
-            console.warn('⚠️  Server not available - playing in offline mode');
-            console.log('💡 To enable progress saving, start the backend server:');
-            console.log('   cd sonic-backend && npm install && node server.js');
-            this.serverAvailable = false; // Server is not available
+            console.warn('⚠️  Could not load progress from localStorage');
             // Use defaults if loading fails
             this.player.lives = 3;
             this.score = 0;
@@ -1754,21 +1844,16 @@ class Game {
 
     async saveProgress(levelName) {
         try {
-            const response = await fetch('http://localhost:3000/api/progress', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    level_name: levelName,
-                    lives: this.player.lives,
-                    score: this.score
-                })
-            });
-            if (response.ok) {
-                console.log(`💾 Saved progress for ${levelName}: ${this.player.lives} lives, ${this.score} score`);
-            }
+            // Save session progress to sessionStorage (resets on page refresh)
+            const progress = {
+                level: levelName,
+                lives: this.player.lives,
+                score: this.score
+            };
+            sessionStorage.setItem('sonic_session_progress', JSON.stringify(progress));
+            console.log(`💾 Saved session progress: ${this.player.lives} lives, ${this.score} score at ${levelName}`);
         } catch (error) {
-            console.warn('⚠️  Server not available - progress not saved');
-            console.log('💡 Start the backend server to enable progress saving');
+            console.warn('⚠️ Could not save session progress');
         }
     }
 
@@ -2033,7 +2118,7 @@ class Game {
     nextLevel() {
         const nextLevel = CONFIG.levels[this.currentLevel]?.next;
         if (nextLevel) {
-            // Save current progress
+            // Save progress before moving to next level
             this.saveProgress(this.currentLevel);
             
             // Stop any current music before loading new level
@@ -2046,7 +2131,6 @@ class Game {
             // Load next level
             this.currentLevel = nextLevel;
             this.loadLevelData(nextLevel);
-            this.loadProgress(nextLevel);
             
             // Reset player position to start
             this.player.x = CONFIG.player.startX;
@@ -2065,7 +2149,13 @@ class Game {
             this.isBossFight = false; // Reset boss fight state
             setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
         } else {
-            // Game complete!
+            // Game complete - clear all saved progress for fresh restart
+            try {
+                sessionStorage.removeItem('sonic_session_progress');
+                console.log('🎉 Game completed! Cleared all session progress for fresh restart');
+            } catch (error) {
+                console.warn('⚠️ Could not clear saved progress');
+            }
             this.state = 'gamecomplete';
         }
     }
@@ -2114,8 +2204,7 @@ class Game {
         // Load level data
         this.loadLevelData(currentLevel);
         
-        // Load saved progress
-        this.loadProgress(currentLevel);
+        // Don't load saved progress on initial game creation - start fresh
     }
 
     setupInputHandlers() {
@@ -2142,35 +2231,47 @@ class Game {
     }
 
     restartGame() {
+        // Stop any current music
+        if (this.currentMusic) {
+            try {
+                this.currentMusic.pause();
+                this.currentMusic.currentTime = 0;
+            } catch (e) {
+                // Ignore music stop errors
+            }
+            this.currentMusic = null;
+        }
+        
+        // Clear all saved progress when restarting from game over
+        try {
+            sessionStorage.removeItem('sonic_session_progress');
+            console.log('🗑️ Cleared all session progress');
+        } catch (error) {
+            console.warn('⚠️ Could not clear saved progress');
+        }
+        
+        // Reset to first level
+        this.currentLevel = 'Test Zone Act 1';
+        this.loadLevelData(this.currentLevel);
+        
+        // Reset music state variables
+        this.musicSwitching = false;
+        this.hasSwitchedToGameMusic = false;
+        
+        // Reset game state
+        this.score = 0;
+        this.checkpointX = undefined;
+        this.checkpointY = undefined;
+        this.deathBlackScreenTimer = 0;
+        this.timer = 0;
+        this.scatteredRings = [];
+        this.cameraX = 0;
+        this.isBossFight = false;
+        this.bossCameraLocked = false;
+        
+        // Create fresh player instance
         this.player = new Player(this.assets);
-        this.enemies = [
-            new Enemy(400, this.ground.y - CONFIG.enemy.height),
-            new Enemy(700, this.ground.y - CONFIG.enemy.height)
-        ];
-        this.rings = [
-            new Ring(250, this.ground.y - 100),
-            new Ring(300, this.ground.y - 100),
-            new Ring(350, this.ground.y - 100),
-            new Ring(500, this.ground.y - 50),
-            new Ring(550, this.ground.y - 50),
-            new Ring(600, this.ground.y - 150)
-        ];
-        this.platforms = [
-            new Platform(800, this.ground.y - 100, 200),
-            new Platform(1200, this.ground.y - 150, 150),
-            new Platform(1600, this.ground.y - 200, 200),
-            new Platform(2000, this.ground.y - 100, 150),
-            new Platform(2400, this.ground.y - 150, 200),
-            new Platform(2800, this.ground.y - 200, 150),
-            new Platform(3200, this.ground.y - 100, 200)
-        ];
-        this.springs = [
-            new Spring(850, this.ground.y - 100 - CONFIG.spring.height),
-            new Spring(1250, this.ground.y - 150 - CONFIG.spring.height),
-            new Spring(2050, this.ground.y - 100 - CONFIG.spring.height),
-            new Spring(2850, this.ground.y - 200 - CONFIG.spring.height)
-        ];
-        this.goal = new Goal(3800, this.ground.y - CONFIG.goal.height);
+        
         this.state = 'title';
     }
 
@@ -2341,6 +2442,27 @@ class Game {
         // Only draw the visible portion of ground (canvas width, not entire level)
         this.ctx.fillRect(0, this.ground.y, this.canvas.width, this.ground.height);
     }
+
+    drawPits() {
+        // Draw pits as dark rectangles to make them visible
+        this.ctx.fillStyle = '#000000'; // Black pits
+        for (let pit of this.pits) {
+            const pitX = pit.x - this.cameraX;
+            const pitY = this.ground.y;
+            const pitWidth = pit.width;
+            const pitHeight = this.ground.height;
+            
+            // Only draw if visible on screen
+            if (pitX + pitWidth > 0 && pitX < this.canvas.width) {
+                this.ctx.fillRect(pitX, pitY, pitWidth, pitHeight);
+                
+                // Add some visual detail - darker border
+                this.ctx.strokeStyle = '#333333';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(pitX, pitY, pitWidth, pitHeight);
+            }
+        }
+    }
     
     drawHUD() {
         this.ctx.fillStyle = 'white';
@@ -2438,10 +2560,10 @@ loop() {
 
         // If player is in death animation, update and draw only player
         if (this.player.isDeathAnimating) {
-            // Draw level and dying Sonic
+            // Draw level and dying Sonic (no rings during death)
             this.drawBackground();
             this.drawGround();
-            for (let ring of this.rings) ring.draw(this.ctx);
+            this.drawPits();
             for (let enemy of this.enemies) enemy.draw(this.ctx);
             this.player.update(this.keys, this.ground, this);
             this.player.draw(this.ctx, this.cameraX);
@@ -2489,7 +2611,9 @@ loop() {
                     // Save checkpoint position for respawn
                     this.checkpointX = checkpoint.x;
                     this.checkpointY = checkpoint.y;
-                    console.log('Checkpoint activated at x:', checkpoint.x);
+                    // Save progress including current score
+                    this.saveProgress(this.currentLevel);
+                    console.log('Checkpoint activated at x:', checkpoint.x, '- Score saved:', this.score);
                 }
             }
             
@@ -2502,7 +2626,7 @@ loop() {
                     const ringBonus = this.player.rings * 100;
                     this.score += timeBonus + ringBonus;
                     
-                    // Save progress
+                    // Save progress after completing level
                     this.saveProgress(this.currentLevel);
                     
                     // Play victory music and show victory screen
@@ -2513,7 +2637,7 @@ loop() {
             }
             // Update and check enemies
             for (let enemy of this.enemies) {
-                enemy.update();
+                enemy.update(this);
                 if (enemy.checkCollision(this.player)) {
                     const isJumpingDown = !this.player.onGround && this.player.velocityY > 0;
                     const isRolling = this.player.isRolling;
@@ -2521,12 +2645,15 @@ loop() {
                     
                     if (isJumpingDown) {
                         enemy.destroy();
+                        this.score += 100; // Points for jumping on enemy
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else if (isRolling) {
                         enemy.destroy();
+                        this.score += 100; // Points for rolling into enemy
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
                     } else if (hasPowerInvincibility) {
                         enemy.destroy();
+                        this.score += 100; // Points for destroying enemy while invincible
                         // Optional: add bounce effect when destroying enemy while invincible
                         this.player.velocityY = CONFIG.player.jumpStrength * 0.3;
                     } else {
@@ -2575,9 +2702,10 @@ loop() {
                     // Calculate level score
                     const timeBonus = Math.max(0, 50000 - this.timer * 10);
                     const ringBonus = this.player.rings * 100;
-                    this.score += timeBonus + ringBonus;
+                    const bossBonus = 10000; // Bonus points for defeating boss
+                    this.score += timeBonus + ringBonus + bossBonus;
                     
-                    // Save progress
+                    // Save progress after defeating boss
                     this.saveProgress(this.currentLevel);
                     
                     // Check if this is the final level
@@ -2631,6 +2759,7 @@ loop() {
             this.timer++;
             this.drawBackground();
             this.drawGround();
+            this.drawPits();
             for (let ring of this.rings) ring.draw(this.ctx, this.cameraX);
             for (let powerUp of this.powerUps) powerUp.draw(this.ctx, this.cameraX, this);
             for (let enemy of this.enemies) enemy.draw(this.ctx, this.cameraX);
