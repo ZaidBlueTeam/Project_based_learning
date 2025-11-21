@@ -1692,6 +1692,12 @@ class Game {
         const levelData = CONFIG.levels[levelName];
         if (!levelData) return;
 
+        // Clear power-up effects at the start of each act (but not temporary post-hit invincibility)
+        this.player.isSpeedBoosted = false;
+        this.player.speedBoostTimer = 0;
+        this.player.isPowerInvincible = false;
+        this.player.powerInvincibilityTimer = 0;
+
         // Clear old scattered rings from previous levels and remove their DOM elements
         for (let ring of this.scatteredRings) {
             if (ring.img) ring.img.remove();
@@ -2610,6 +2616,9 @@ loop() {
         }
         this.drawVictory();
         document.getElementById('playerImg').style.display = 'none';
+        
+        // Hide all ring elements during victory screen
+        this.hideRingElements();
     } else if (this.state === 'gamecomplete') {
         this.drawGameComplete();
         document.getElementById('playerImg').style.display = 'none';
