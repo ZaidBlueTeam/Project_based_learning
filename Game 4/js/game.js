@@ -837,7 +837,6 @@ class Player {
     }
     
     die(game) {
-        this.lives--;
         this.isDeathAnimating = true;
         this.deathAnimTimer = 0;
         this.deathAnimVy = 0;
