@@ -264,27 +264,7 @@ const CONFIG = {
                 { x: 1450, y: 280 }, { x: 1850, y: 330 }, { x: 2250, y: 380 },
                 { x: 2650, y: 280 }, { x: 3050, y: 330 }, { x: 3450, y: 380 }
             ],
-            goal: { x: 3800, y: 425 },
-            powerUps: [
-                { x: 800, y: 400, type: 'speed' },
-                { x: 1600, y: 400, type: 'invincibility' },
-                { x: 2400, y: 400, type: 'life' },
-                { x: 3200, y: 400, type: 'speed' }
-            ],
-            checkpoints: [
-                { x: 1000, y: 425 },
-                { x: 2000, y: 425 },
-                { x: 3000, y: 425 }
-            ],
-            pits: [
-                { x: 300, width: 60 },
-                { x: 800, width: 80 },
-                { x: 1300, width: 100 },
-                { x: 1800, width: 120 },
-                { x: 2300, width: 100 },
-                { x: 2800, width: 80 },
-                { x: 3300, width: 120 }
-            ]
+            boss: { x: 2900, y: 350, sprite: 'testZoneBossSprite', health: 10, music: 'bossMusic' }
         },
         'Hell Zone Act 1': {
             theme: {
@@ -440,27 +420,6 @@ const CONFIG = {
                 { x: 250, y: 430 }, { x: 650, y: 330 }, { x: 1050, y: 380 },
                 { x: 1450, y: 280 }, { x: 1850, y: 330 }, { x: 2250, y: 380 },
                 { x: 2650, y: 280 }, { x: 3050, y: 330 }, { x: 3450, y: 380 }
-            ],
-            goal: { x: 3800, y: 425 },
-            powerUps: [
-                { x: 800, y: 400, type: 'speed' },
-                { x: 1600, y: 400, type: 'invincibility' },
-                { x: 2400, y: 400, type: 'life' },
-                { x: 3200, y: 400, type: 'speed' }
-            ],
-            checkpoints: [
-                { x: 1000, y: 425 },
-                { x: 2000, y: 425 },
-                { x: 3000, y: 425 }
-            ],
-            pits: [
-                { x: 300, width: 60 },
-                { x: 800, width: 80 },
-                { x: 1300, width: 100 },
-                { x: 1800, width: 120 },
-                { x: 2300, width: 100 },
-                { x: 2800, width: 80 },
-                { x: 3300, width: 120 }
             ],
             boss: { x: 3200, y: 350, sprite: 'hellBossSprite', health: 12, music: 'hellBossMusic' }
         }

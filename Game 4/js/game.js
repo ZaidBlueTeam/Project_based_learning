@@ -205,8 +205,13 @@ class Game {
     }
 
     loadLevelData(levelName) {
+        console.log('Loading level:', levelName);
         const levelData = CONFIG.levels[levelName];
-        if (!levelData) return;
+        if (!levelData) {
+            console.log('ERROR: Level data not found for', levelName);
+            return;
+        }
+        console.log('Level data found, powerUps:', levelData.powerUps?.length || 0, 'pits:', levelData.pits?.length || 0, 'checkpoints:', levelData.checkpoints?.length || 0);
 
         // Clear power-up effects at the start of each act (but not temporary post-hit invincibility)
         this.player.isSpeedBoosted = false;
@@ -260,6 +265,7 @@ class Game {
 
         // Create power-ups
         this.powerUps = (levelData.powerUps || []).map(p => new PowerUp(p.x, p.y, p.type));
+        console.log('Initialized powerUps:', this.powerUps.length);
 
         // Create platforms
         this.platforms = levelData.platforms.map(p =>
@@ -271,12 +277,14 @@ class Game {
 
         // Add this line to initialize pits
         this.pits = levelData.pits || [];
+        console.log('Initialized pits:', this.pits.length);
 
         // Create goal (if level has one)
         this.goal = levelData.goal ? new Goal(levelData.goal.x, this.ground.y - CONFIG.goal.height) : null;
 
         // Create checkpoints (if level has them)
         this.checkpoints = (levelData.checkpoints || []).map(c => new Checkpoint(c.x, this.ground.y - CONFIG.checkpoint.height));
+        console.log('Initialized checkpoints:', this.checkpoints.length);
 
         // Don't auto-start boss fight - wait for player to reach boss area
         // Boss fight will be triggered when player reaches boss position
@@ -1011,7 +1019,7 @@ class Game {
                 if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 2900) {
                     this.startBossFight();
                 }
-                if (this.currentLevel === 'Hell.exe Act 3' && this.boss && !this.isBossFight && this.player.x >= 1500) {
+                if (this.currentLevel === 'Hell Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 3200) {
                     this.startBossFight();
                 }
 
@@ -1089,7 +1097,7 @@ class Game {
                 }
                 // Camera system - completely locks when boss fight is active
                 let targetCameraX;
-                if (this.bossCameraLocked && this.boss && this.currentLevel !== 'Hell.exe Act 3') {
+                if (this.bossCameraLocked && this.boss && this.currentLevel !== 'Hell Zone Act 3' && this.currentLevel !== 'Test Zone Act 3') {
                     // Camera is completely frozen during boss fight
                     // Don't change targetCameraX - keep it at current position
                     targetCameraX = this.cameraX;
