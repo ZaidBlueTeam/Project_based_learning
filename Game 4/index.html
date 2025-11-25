@@ -10,8 +10,18 @@
     <h1>Classic Sonic Engine PROTOTYPE</h1>
     <div id="gameContainer">
         <div id="backgroundImg"></div>
+        <img id="titleScreenImg">
         <canvas id="gameCanvas" width="900" height="600"></canvas>
         <img id="playerImg" src="images/sonic.png">
+        
+        <!-- Mobile Controls -->
+        <div id="mobileControls">
+            <button id="startBtn" class="mobileBtn startBtn">START</button>
+            <button id="leftBtn" class="mobileBtn">←</button>
+            <button id="rightBtn" class="mobileBtn">→</button>
+            <button id="jumpBtn" class="mobileBtn">↑</button>
+            <button id="spindashBtn" class="mobileBtn">↓</button>
+        </div>
     </div>
     <audio id="titleMusic">
         <source src="audio/title.mp3" type="audio/mpeg">

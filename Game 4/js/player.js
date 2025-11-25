@@ -101,9 +101,10 @@ class Player {
 
         // Normal update logic continues...
 
-        // Spindash: Press 's' to crouch, hold to charge, release to dash
+        // Spindash: Press 's' or down arrow to crouch, hold to charge, release to dash
         // MUST be checked BEFORE horizontal movement to prevent moving while charging
-        if (keys['s'] && this.onGround && !this.spindashMode) {
+        const spindashKey = keys['s'] || keys['ArrowDown'];
+        if (spindashKey && this.onGround && !this.spindashMode) {
             // Can only START spindash if standing still (or moving very slowly)
             if (Math.abs(this.velocityX) < 0.5) {
                 this.spindashMode = true;
@@ -111,9 +112,9 @@ class Player {
                 this.animation = 'crouch';
                 this.spindashTimer = 0;
                 this.spindashCharge = 0;
-                this.assets.getAudio('spindashSound').play();
+                this.assets.playSoundEffect('spindashSound');
             }
-        } else if (keys['s'] && this.spindashMode) {
+        } else if (spindashKey && this.spindashMode) {
             // Charging - locked in place, can't move
             this.velocityX = 0; // Keep locked in place
             this.spindashCharge += 1;
@@ -121,7 +122,7 @@ class Player {
             if (this.spindashTimer > CONFIG.player.spindashChargeFrames) {
                 this.animation = 'spindash';
             }
-        } else if (!keys['s'] && this.spindashMode && this.spindashCharge > 0) {
+        } else if (!spindashKey && this.spindashMode && this.spindashCharge > 0) {
             // Release: Dash with jump animation
             this.velocityX = this.facing * CONFIG.player.spindashSpeed * (this.spindashCharge / 10);
             this.spindashCharge = 0;
@@ -129,7 +130,7 @@ class Player {
             this.animation = 'jump';
             this.spindashMode = false;
             this.isRolling = true; // Enter rolling mode
-        } else if (!keys['s'] && this.spindashMode) {
+        } else if (!spindashKey && this.spindashMode) {
             // Cancelled spindash without charging
             this.spindashMode = false;
             this.spindashCharge = 0;
@@ -138,11 +139,11 @@ class Player {
 
         // Horizontal movement - BLOCKED during spindash charging
         if (!this.spindashMode) {
-            if (keys['a']) {
+            if (keys['ArrowLeft'] || keys['a']) {
                 this.velocityX -= this.acceleration;
                 if (!this.isRolling && this.velocityX < -this.effectiveMaxSpeed) this.velocityX = -this.effectiveMaxSpeed;
                 this.facing = -1;
-            } else if (keys['d']) {
+            } else if (keys['ArrowRight'] || keys['d']) {
                 this.velocityX += this.acceleration;
                 if (!this.isRolling && this.velocityX > this.effectiveMaxSpeed) this.velocityX = this.effectiveMaxSpeed;
                 this.facing = 1;
@@ -158,7 +159,11 @@ class Player {
             if (this.onGround && !this.spindashMode && !this.jumpKeyWasPressed) {
                 this.velocityY = this.jumpStrength;
                 this.onGround = false;
-                this.assets.getAudio('jumpSound').play();
+                this.assets.playSoundEffect('jumpSound');
+                // Add vibration feedback for controllers
+                if (game && game.vibrateController) {
+                    game.vibrateController(0, 100, 0.3, 0.3); // Short vibration on first connected controller
+                }
             }
             this.jumpKeyWasPressed = true;  // Mark that jump key is being held
         } else {
@@ -542,9 +547,20 @@ class Player {
     takeDamage(game) {
         if (this.isInvincible || this.isPowerInvincible || this.hurtTimer > 0) return;
         console.log('Player took damage! Rings before:', this.rings);
+        
+        // Add vibration feedback for controllers
+        if (game && game.vibrateController) {
+            game.vibrateController(0, 300, 0.8, 0.8); // Stronger, longer vibration for damage
+        }
+        
         if (this.rings > 0) {
             this.loseRings(game);
             console.log('Rings after damage:', this.rings);
+            // Play ring loss sound
+            if (game && game.assets) {
+                const ringLossSound = game.assets.getAudio('ringLossSound');
+                if (ringLossSound) ringLossSound.play().catch(e => {});
+            }
             // Knockback
             this.velocityX = -this.facing * CONFIG.playerSettings.knockbackForce;
             this.velocityY = -5;
@@ -556,6 +572,15 @@ class Player {
             this.isDeathAnimating = true;
             this.deathAnimVy = -10;
             this.deathAnimTimer = 0;
+            // Add vibration for death
+            if (game && game.vibrateController) {
+                game.vibrateController(0, 500, 1.0, 1.0); // Strong, long vibration for death
+            }
+            // Play death sound
+            if (game && game.assets) {
+                const deathSound = game.assets.getAudio('deathSound');
+                if (deathSound) deathSound.play().catch(e => {});
+            }
         }
     }
 }

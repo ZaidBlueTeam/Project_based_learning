@@ -27,6 +27,10 @@ class Boss {
         // State
         this.isAlive = true;
         this.health = config.health || 8; // Takes hits to defeat
+        this.isExploding = false; // New: explosion state
+        this.explosionTimer = 0; // New: timer for explosion effect
+        this.fadeAlpha = 1.0; // New: for smooth fade out
+        this.isFullyDefeated = false; // New: true only after explosion completes
 
         // Attack
         this.shootTimer = 0;
@@ -40,7 +44,40 @@ class Boss {
     update() {
         if (!this.isAlive) return;
 
-        // Patrol back and forth
+        // Handle explosion animation
+        if (this.isExploding) {
+            this.explosionTimer++;
+            
+            // Explosion effect: shake and fade
+            if (this.explosionTimer < 30) { // 0.5 seconds of explosion
+                // Shake effect
+                const shakeAmount = 5;
+                const shakeX = (Math.random() - 0.5) * shakeAmount;
+                const shakeY = (Math.random() - 0.5) * shakeAmount;
+                this.img.style.transform = `translate(${shakeX}px, ${shakeY}px)`;
+                
+                // Fade out gradually
+                this.fadeAlpha = Math.max(0.3, 1.0 - (this.explosionTimer / 30));
+                this.img.style.opacity = this.fadeAlpha;
+                
+            } else if (this.explosionTimer < 60) { // 1 second total
+                // Stop shaking, continue fading
+                this.img.style.transform = 'translate(0px, 0px)';
+                this.fadeAlpha = Math.max(0, 0.3 - ((this.explosionTimer - 30) / 30));
+                this.img.style.opacity = this.fadeAlpha;
+                
+            } else {
+                // Explosion complete, destroy boss
+                this.isFullyDefeated = true;
+                this.destroy();
+                return;
+            }
+            
+            // Don't do normal movement during explosion
+            return;
+        }
+
+        // Normal boss behavior continues...
         this.x += this.speed * this.direction;
 
         // Turn around at patrol boundaries
@@ -170,7 +207,7 @@ class Boss {
     }
 
     checkCollision(player) {
-        if (!this.isAlive) return false;
+        if (!this.isAlive || this.isExploding) return false;
 
         const bossLeft = this.x;
         const bossRight = this.x + this.width;
@@ -188,10 +225,31 @@ class Boss {
                playerBottom > bossTop;
     }
 
-    takeDamage() {
+    takeDamage(game) {
         this.health--;
+        // Play hit sound when boss takes damage (can play multiple times simultaneously)
+        if (game && game.assets) {
+            game.assets.playSoundEffect('bossHitSound');
+        }
         if (this.health <= 0) {
-            this.destroy();
+            this.startExplosion(game);
+        }
+    }
+
+    startExplosion(game) {
+        this.isExploding = true;
+        this.explosionTimer = 0;
+        // Add vibration for boss defeat
+        if (game && game.vibrateController) {
+            game.vibrateController(0, 800, 1.0, 1.0); // Strong, long vibration for boss defeat
+        }
+        // Play explosion sound (can play multiple times simultaneously)
+        if (game && game.assets) {
+            game.assets.playSoundEffect('explosionSound');
+        }
+        // Stop boss music and resume level music
+        if (game) {
+            game.endBossFight();
         }
     }
 
@@ -411,6 +469,81 @@ class PowerUp {
         this.width = 30;
         this.height = 30;
         this.collected = false;
+        this.isBroken = false;
+        this.brokenTimer = 0;
+    }
+
+    update() {
+        if (this.isBroken) {
+            this.brokenTimer++;
+            // Remove after animation (30 frames = 0.5 seconds)
+            if (this.brokenTimer > 30) {
+                // Power-up is completely removed
+            }
+        }
+    }
+
+    checkCollision(player) {
+        if (this.isBroken) return false;
+
+        return player.x < this.x + this.width &&
+               player.x + player.width > this.x &&
+               player.y < this.y + this.height &&
+               player.y + player.height > this.y;
+    }
+
+    // Check if player is jumping up into the power-up box from below
+    checkBreakFromBottom(player) {
+        if (this.isBroken || this.collected) return false;
+
+        // Player must be moving upward (jumping)
+        if (player.velocityY >= 0) return false;
+
+        // Player's head must be below the box bottom but above the box top
+        const playerHeadY = player.y;
+        const boxBottom = this.y + this.height;
+        const boxTop = this.y;
+
+        // Player head should be close to box bottom (within a few pixels)
+        const tolerance = 10;
+        if (playerHeadY > boxBottom - tolerance && playerHeadY < boxBottom + tolerance) {
+            // Check horizontal overlap
+            const playerLeft = player.x;
+            const playerRight = player.x + player.width;
+            const boxLeft = this.x;
+            const boxRight = this.x + this.width;
+
+            return playerLeft < boxRight && playerRight > boxLeft;
+        }
+
+        return false;
+    }
+
+    break(game) {
+        if (this.isBroken || this.collected) return;
+
+        this.isBroken = true;
+        this.brokenTimer = 0;
+
+        // Play break sound (same as enemy hit) - can play multiple times simultaneously
+        if (game && game.assets) {
+            game.assets.playSoundEffect('enemyHitSound');
+        }
+
+        // Add vibration
+        if (game && game.vibrateController) {
+            game.vibrateController(0, 100, 0.2, 0.4);
+        }
+
+        // Award points for breaking the box
+        if (game) {
+            game.score += 50;
+        }
+
+        // Apply the power-up effect when broken from below
+        if (game) {
+            game.applyPowerUp(this.type);
+        }
     }
 
     checkCollision(player) {
@@ -421,9 +554,17 @@ class PowerUp {
     }
 
     draw(ctx, cameraX, game) {
-        if (this.collected) return;
+        if (this.collected || this.isBroken) {
+            if (this.isBroken) {
+                // Draw breaking animation (simple fade out)
+                const alpha = Math.max(0, 1.0 - (this.brokenTimer / 30));
+                ctx.globalAlpha = alpha;
+            } else {
+                return; // Don't draw collected power-ups
+            }
+        }
 
-        // Draw power-up sprite
+        // Draw power-up sprite or fallback box
         let spriteName;
         if (this.type === 'speed') spriteName = 'speedPowerUp';
         else if (this.type === 'invincibility') spriteName = 'invincibilityPowerUp';
@@ -446,14 +587,23 @@ class PowerUp {
             ctx.textAlign = 'left'; // Reset text alignment
         }
 
-        // Check for collection (only if jumping or spindashing)
-        if (this.checkCollision(game.player)) {
+        if (this.isBroken) {
+            ctx.globalAlpha = 1.0; // Reset alpha
+        }
+
+        // Check for collection (only if jumping or spindashing) - but not if broken
+        if (!this.isBroken && this.checkCollision(game.player)) {
             const isJumpingDown = !game.player.onGround && game.player.velocityY > 0;
             const isRolling = game.player.isRolling;
             if (isJumpingDown || isRolling) {
                 this.collected = true;
                 game.applyPowerUp(this.type);
             }
+        }
+
+        // Check for breaking from below
+        if (!this.collected && this.checkBreakFromBottom(game.player)) {
+            this.break(game);
         }
     }
 }
@@ -564,9 +714,8 @@ class Spring {
         // Start cooldown
         this.cooldown = this.maxCooldown;
 
-        // Play spring sound
-        const springAudio = player.assets.getAudio('springSound');
-        if (springAudio) springAudio.play();
+        // Play spring sound (can play multiple times simultaneously)
+        player.assets.playSoundEffect('springSound');
     }
 }
 

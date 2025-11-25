@@ -78,7 +78,7 @@ const CONFIG = {
 
     assets: {
         images: {
-            titleScreen: 'images/TitleScreen.png',
+            titleScreen: 'images/TitleScreen.gif',
             background: 'images/green_hill.gif',
             sonicIdle: 'images/sonic.png',
             sonicWalk: 'images/sonic_walk.gif',
@@ -116,7 +116,14 @@ const CONFIG = {
             invincibilityMusic: 'audio/invincibility.ogg',
             extraLifeSound: 'audio/ExtraLife.ogg',
             hellAct3Music: 'audio/hillACT3.ogg',
-            hellBossMusic: 'audio/hillBOSS.wav'
+            hellBossMusic: 'audio/hillBOSS.wav',
+            // New sound effects
+            explosionSound: 'audio/explosion.wav', // Boss explosion sound
+            enemyHitSound: 'audio/enemyHit.wav', // Enemy destruction sound
+            bossHitSound: 'audio/BossHit.wav', // Boss hit sound
+            ringCollectSound: 'audio/ringCollect.wav', // Ring collection sound
+            ringLossSound: 'audio/ringLoss.wav', // Ring loss sound
+            deathSound: 'audio/death.wav' // Player death sound
         }
     },
 

@@ -71,6 +71,24 @@ class AssetManager {
         return this.audio[name];
     }
 
+    // Create a new audio instance for sound effects that can play multiple times simultaneously
+    playSoundEffect(name) {
+        const originalAudio = this.audio[name];
+        if (!originalAudio) return null;
+
+        // Create a new audio instance to allow overlapping plays
+        const soundEffect = new Audio(originalAudio.src);
+        soundEffect.volume = originalAudio.volume;
+        soundEffect.playbackRate = originalAudio.playbackRate;
+
+        // Play the sound effect
+        soundEffect.play().catch(e => {
+            console.warn('Failed to play sound effect:', name, e);
+        });
+
+        return soundEffect;
+    }
+
     getProgress() {
         return this.totalAssets > 0 ? this.loadedCount / this.totalAssets : 0;
     }
@@ -87,7 +105,7 @@ class Game {
         this.ctx.font = 'bold 48px Arial';
         this.ctx.fillText('GAME OVER', this.canvas.width / 2 - 160, this.canvas.height / 2 - 40);
         this.ctx.font = '24px Arial';
-        this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 40);
+        this.ctx.fillText(this.getRestartText(), this.canvas.width / 2 - 120, this.canvas.height / 2 + 40);
     }
 
     drawZone() {
@@ -110,7 +128,7 @@ class Game {
         this.ctx.font = '24px Arial';
         this.ctx.fillText(`Final Score: ${this.score.toLocaleString()}`, this.canvas.width / 2 - 100, this.canvas.height / 2);
         this.ctx.fillText('Congratulations!', this.canvas.width / 2 - 100, this.canvas.height / 2 + 40);
-        this.ctx.fillText('Press R to Play Again', this.canvas.width / 2 - 100, this.canvas.height / 2 + 80);
+        this.ctx.fillText(this.getPlayAgainText(), this.canvas.width / 2 - 120, this.canvas.height / 2 + 80);
     }
 
     drawLevelComplete() {
@@ -133,7 +151,7 @@ class Game {
         this.ctx.fillText(`Total Score: ${this.score.toLocaleString()}`, this.canvas.width / 2 - 100, this.canvas.height / 2 + 110);
 
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Press R to Restart', this.canvas.width / 2 - 100, this.canvas.height / 2 + 140);
+        this.ctx.fillText(this.getRestartText(), this.canvas.width / 2 - 120, this.canvas.height / 2 + 140);
     }
 
     drawVictory() {
@@ -164,6 +182,54 @@ class Game {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Dynamic text based on input device
+    getStartText() {
+        switch (this.currentInputDevice) {
+            case 'controller':
+                return 'Press START or A to Start';
+            case 'mobile':
+                return 'Tap START to Begin';
+            default: // keyboard
+                return 'Press SPACE to Start';
+        }
+    }
+
+    getRestartText() {
+        switch (this.currentInputDevice) {
+            case 'controller':
+                return 'Press START to Restart';
+            case 'mobile':
+                return 'Tap RESTART to Play Again';
+            default: // keyboard
+                return 'Press R to Restart';
+        }
+    }
+
+    getPlayAgainText() {
+        switch (this.currentInputDevice) {
+            case 'controller':
+                return 'Press START to Play Again';
+            case 'mobile':
+                return 'Tap PLAY AGAIN';
+            default: // keyboard
+                return 'Press R to Play Again';
+        }
+    }
+
+    // Update input device based on recent input
+    updateInputDevice(deviceType) {
+        this.currentInputDevice = deviceType;
+        this.lastInputTime = Date.now();
+    }
+
+    // Check if we should switch back to keyboard (no input for 5 seconds)
+    checkInputTimeout() {
+        if (this.currentInputDevice !== 'keyboard' &&
+            Date.now() - this.lastInputTime > this.inputDeviceTimeout) {
+            this.currentInputDevice = 'keyboard';
+        }
     }
 
     // Database integration methods
@@ -547,6 +613,24 @@ class Game {
         };
 
         this.keys = {};
+        
+        // Controller input state
+        this.analogLeft = false;
+        this.analogRight = false;
+        this.analogDown = false;
+        this.dpadLeft = false;
+        this.dpadRight = false;
+        this.dpadDown = false;
+        this.dpadUp = false;
+        this.buttonDown = false; // For spindash button
+        this.lastHadInput = false; // For debugging controller input
+        this.shownActivationMessage = false; // For activation message
+        
+        // Input device tracking for dynamic text
+        this.currentInputDevice = 'keyboard'; // 'keyboard', 'controller', 'mobile'
+        this.lastInputTime = Date.now();
+        this.inputDeviceTimeout = 5000; // 5 seconds of no input switches back to keyboard
+        
         this.setupInputHandlers();
         this.deathBlackScreenTimer = 0;
         this.victoryTimer = 0;
@@ -560,12 +644,16 @@ class Game {
         this.loadLevelData(currentLevel);
 
         // Don't load saved progress on initial game creation - start fresh
+        this.hideTitleScreen(); // Ensure title screen is hidden on game initialization
     }
 
     setupInputHandlers() {
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
+            this.updateInputDevice('keyboard');
             if (this.state === 'title' && e.key === ' ') {
+                this.hideTitleScreen();
                 this.state = 'zone';
                 setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
             }
@@ -578,11 +666,476 @@ class Game {
             if (this.state === 'gamecomplete' && (e.key === 'r' || e.key === 'R')) {
                 this.restartGame(); // Full game restart
             }
+            // Test controllers with 'T' key
+            if (e.key === 't' || e.key === 'T') {
+                this.testControllers();
+            }
         });
 
         document.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
         });
+
+        // Mobile controls
+        this.setupMobileControls();
+
+        // Gamepad support
+        this.setupGamepadSupport();
+    }
+
+    setupMobileControls() {
+        const startBtn = document.getElementById('startBtn');
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const jumpBtn = document.getElementById('jumpBtn');
+        const spindashBtn = document.getElementById('spindashBtn');
+
+        if (!leftBtn || !rightBtn || !jumpBtn || !spindashBtn) return; // Not on mobile
+
+        // Start button (only shown on title screen)
+        if (startBtn) {
+            startBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.updateInputDevice('mobile');
+                if (this.state === 'title') {
+                    this.hideTitleScreen();
+                    this.state = 'zone';
+                    setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
+                }
+            });
+            startBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.updateInputDevice('mobile');
+                if (this.state === 'title') {
+                    this.hideTitleScreen();
+                    this.state = 'zone';
+                    setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
+                }
+            });
+        }
+
+        // Left button
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.updateInputDevice('mobile');
+            this.keys['ArrowLeft'] = true;
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.keys['ArrowLeft'] = false;
+        });
+
+        // Right button
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.updateInputDevice('mobile');
+            this.keys['ArrowRight'] = true;
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.keys['ArrowRight'] = false;
+        });
+
+        // Jump button
+        jumpBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.updateInputDevice('mobile');
+            this.keys[' '] = true; // Space for jump
+        });
+        jumpBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.keys[' '] = false;
+        });
+
+        // Spindash button
+        spindashBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            this.updateInputDevice('mobile');
+            this.keys['ArrowDown'] = true;
+        });
+        spindashBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            this.keys['ArrowDown'] = false;
+        });
+    }
+
+    setupGamepadSupport() {
+        this.gamepads = {};
+        this.lastGamepadState = {};
+        this.controllerMappings = {
+            // Standard Xbox/PlayStation layout
+            standard: {
+                leftStick: { x: 0, y: 1 },
+                rightStick: { x: 2, y: 3 },
+                buttons: {
+                    A: 0, // Jump (A on Xbox, X on PlayStation)
+                    B: 1, // Spindash (B on Xbox, Circle on PlayStation)
+                    X: 2, // Action 1
+                    Y: 3, // Action 2
+                    LB: 4, // Left bumper
+                    RB: 5, // Right bumper
+                    LT: 6, // Left trigger (analog)
+                    RT: 7, // Right trigger (analog)
+                    select: 8, // Back/Share
+                    start: 9, // Start/Options
+                    leftStickPress: 10,
+                    rightStickPress: 11,
+                    dpadUp: 12,
+                    dpadDown: 13,
+                    dpadLeft: 14,
+                    dpadRight: 15
+                }
+            },
+            // Nintendo Switch Pro Controller
+            nintendo: {
+                leftStick: { x: 0, y: 1 },
+                rightStick: { x: 2, y: 5 },
+                buttons: {
+                    B: 0, // Jump
+                    A: 1, // Spindash
+                    Y: 2,
+                    X: 3,
+                    L: 4,
+                    R: 5,
+                    ZL: 6,
+                    ZR: 7,
+                    minus: 8,
+                    plus: 9,
+                    leftStickPress: 10,
+                    rightStickPress: 11,
+                    dpadUp: 12,
+                    dpadDown: 13,
+                    dpadLeft: 14,
+                    dpadRight: 15
+                }
+            },
+            // Generic 8BitDo controllers and other generic gamepads
+            generic: {
+                leftStick: { x: 0, y: 1 },
+                rightStick: { x: 2, y: 3 },
+                buttons: {
+                    A: 0, B: 1, X: 2, Y: 3,
+                    L: 4, R: 5, LT: 6, RT: 7,
+                    select: 8, start: 9,
+                    leftStickPress: 10, rightStickPress: 11,
+                    dpadUp: 12, dpadDown: 13, dpadLeft: 14, dpadRight: 15
+                }
+            },
+            // Retro controllers (SNES, NES style)
+            retro: {
+                buttons: {
+                    A: 0, B: 1, X: 2, Y: 3,
+                    L: 4, R: 5, select: 6, start: 7,
+                    dpadUp: 8, dpadDown: 9, dpadLeft: 10, dpadRight: 11
+                }
+            }
+        };
+
+        window.addEventListener('gamepadconnected', (e) => {
+            console.log('🎮 Gamepad connected:', e.gamepad.id);
+            this.gamepads[e.gamepad.index] = e.gamepad;
+            this.detectControllerType(e.gamepad);
+        });
+
+        window.addEventListener('gamepaddisconnected', (e) => {
+            console.log('🎮 Gamepad disconnected:', e.gamepad.id);
+            delete this.gamepads[e.gamepad.index];
+            delete this.lastGamepadState[e.gamepad.index];
+        });
+    }
+
+    detectControllerType(gamepad) {
+        const id = gamepad.id.toLowerCase();
+        const mapping = gamepad.mapping; // Standard, xr-standard, or empty string
+
+        console.log(`🔍 Detecting controller: ${gamepad.id}`);
+        console.log(`   Browser mapping: "${mapping}"`);
+        console.log(`   Buttons: ${gamepad.buttons.length}, Axes: ${gamepad.axes.length}`);
+
+        // Check for standard mapping first
+        if (mapping === 'standard' || mapping === 'xr-standard') {
+            this.gamepads[gamepad.index].controllerType = 'standard';
+        }
+        // Check by manufacturer/brand - prioritize Xbox detection
+        else if (id.includes('xbox') || id.includes('microsoft') || id.includes('xinput')) {
+            this.gamepads[gamepad.index].controllerType = 'standard';
+            console.log('   ✅ Detected as Xbox controller');
+        } 
+        else if (id.includes('playstation') || id.includes('dualshock') || id.includes('sony') || id.includes('ps4') || id.includes('ps5')) {
+            this.gamepads[gamepad.index].controllerType = 'standard';
+        } 
+        else if (id.includes('nintendo') || id.includes('switch') || id.includes('wii') || id.includes('gamecube')) {
+            this.gamepads[gamepad.index].controllerType = 'nintendo';
+        }
+        else if (id.includes('8bitdo') || id.includes('retro') || id.includes('snes') || id.includes('nes') || id.includes('genesis')) {
+            this.gamepads[gamepad.index].controllerType = 'retro';
+        }
+        else if (id.includes('stadia') || id.includes('stadia controller')) {
+            this.gamepads[gamepad.index].controllerType = 'standard'; // Stadia uses standard mapping
+        }
+        else if (id.includes('steam') || id.includes('valve')) {
+            this.gamepads[gamepad.index].controllerType = 'standard'; // Steam controllers
+        }
+        else {
+            // Try to detect based on number of buttons/axes
+            if (gamepad.buttons.length >= 16 && gamepad.axes.length >= 4) {
+                this.gamepads[gamepad.index].controllerType = 'standard';
+            } else if (gamepad.buttons.length >= 12 && gamepad.axes.length >= 2) {
+                this.gamepads[gamepad.index].controllerType = 'generic';
+            } else {
+                this.gamepads[gamepad.index].controllerType = 'retro'; // Fallback for older controllers
+            }
+        }
+        
+        console.log(`🎯 Final controller type: ${this.gamepads[gamepad.index].controllerType}`);
+    }
+
+    // Optional: Add vibration feedback for certain actions
+    vibrateController(gamepadIndex, duration = 200, weakMagnitude = 0.5, strongMagnitude = 0.5) {
+        const gamepad = this.gamepads[gamepadIndex];
+        if (gamepad && gamepad.vibrationActuator) {
+            try {
+                gamepad.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: duration,
+                    weakMagnitude: weakMagnitude,
+                    strongMagnitude: strongMagnitude
+                });
+            } catch (e) {
+                // Vibration not supported or failed
+                console.log('Vibration not supported on this controller');
+            }
+        }
+    }
+
+    // Test all connected controllers
+    testControllers() {
+        const gamepads = navigator.getGamepads();
+        console.log('🎮 Testing all connected controllers:');
+        
+        for (let i = 0; i < gamepads.length; i++) {
+            const gamepad = gamepads[i];
+            if (!gamepad) continue;
+            
+            console.log(`Controller ${i}: ${gamepad.id}`);
+            console.log(`  Connected: ${gamepad.connected}`);
+            console.log(`  Mapping: ${gamepad.mapping || 'none'}`);
+            console.log(`  Buttons: ${gamepad.buttons.length}`);
+            console.log(`  Axes: ${gamepad.axes.length}`);
+            
+            // Test button presses
+            const pressedButtons = [];
+            gamepad.buttons.forEach((button, index) => {
+                if (button.pressed || button.value > 0.1) {
+                    pressedButtons.push(index);
+                }
+            });
+            if (pressedButtons.length > 0) {
+                console.log(`  Pressed buttons: ${pressedButtons.join(', ')}`);
+            }
+            
+            // Test axes
+            const activeAxes = [];
+            gamepad.axes.forEach((axis, index) => {
+                if (Math.abs(axis) > 0.1) {
+                    activeAxes.push(`${index}: ${axis.toFixed(2)}`);
+                }
+            });
+            if (activeAxes.length > 0) {
+                console.log(`  Active axes: ${activeAxes.join(', ')}`);
+            }
+        }
+        
+        if (gamepads.length === 0) {
+            console.log('No controllers connected. Try pressing buttons on your controller.');
+        }
+    }
+
+    updateGamepadInput() {
+        // Force refresh of gamepad state - try multiple times
+        let gamepads = navigator.getGamepads();
+        
+        // If no gamepads found, try again after a short delay
+        if (!gamepads || gamepads.length === 0) {
+            setTimeout(() => {
+                gamepads = navigator.getGamepads();
+            }, 10);
+        }
+        
+        for (let i = 0; i < gamepads.length; i++) {
+            const gamepad = gamepads[i];
+            if (!gamepad) continue;
+
+            const controllerType = gamepad.controllerType || 'standard';
+            const mapping = this.controllerMappings[controllerType];
+            const lastState = this.lastGamepadState[i] || {};
+
+            // Debug: Log controller state (only when input detected)
+            const hasAnyInput = gamepad.axes.some(axis => Math.abs(axis) > 0.001) || 
+                               gamepad.buttons.some(btn => btn.pressed || (btn.value && btn.value > 0.001));
+            
+            if (hasAnyInput && !this.lastHadInput) {
+                console.log('🎉 CONTROLLER INPUT DETECTED!');
+                this.updateInputDevice('controller');
+                console.log(`🎮 Controller: ${gamepad.id}`);
+                console.log(`   All Axes: [${gamepad.axes.map((v, i) => `${i}:${v?.toFixed(3)}`).join(', ')}]`);
+                console.log(`   All Buttons: [${gamepad.buttons.map((b, i) => `${i}:${b?.pressed || (b?.value > 0.1)}`).join(', ')}]`);
+                this.lastHadInput = true;
+            } else if (!hasAnyInput) {
+                this.lastHadInput = false;
+            }
+
+            // Handle analog sticks for movement
+            this.handleAnalogSticks(gamepad, mapping);
+
+            // Handle digital buttons
+            this.handleDigitalButtons(gamepad, mapping, lastState, i);
+
+            // Handle D-pad (if present)
+            this.handleDpad(gamepad, mapping);
+
+            // Save current state for next frame
+            this.lastGamepadState[i] = gamepad.buttons.map(btn => btn.pressed || btn.value > 0.1);
+        }
+    }
+
+    handleAnalogSticks(gamepad, mapping) {
+        // Try all possible axis pairs to find the left stick
+        const axes = gamepad.axes;
+        
+        // Test all possible X,Y axis combinations
+        const possibleMappings = [
+            { x: 0, y: 1 }, // Standard
+            { x: 1, y: 0 }, // Swapped
+            { x: 2, y: 3 }, // Right stick
+            { x: 3, y: 2 }, // Right stick swapped
+            { x: 0, y: 3 }, // Mixed
+            { x: 1, y: 2 }, // Mixed
+        ];
+        
+        let bestMapping = { x: 0, y: 1 }; // Default
+        let bestMovement = 0;
+        
+        // Find which mapping has the most movement
+        for (const testMapping of possibleMappings) {
+            const xVal = Math.abs(axes[testMapping.x] || 0);
+            const yVal = Math.abs(axes[testMapping.y] || 0);
+            const totalMovement = xVal + yVal;
+            
+            if (totalMovement > bestMovement) {
+                bestMovement = totalMovement;
+                bestMapping = testMapping;
+            }
+        }
+        
+        const actualLeftX = axes[bestMapping.x] || 0;
+        const actualLeftY = axes[bestMapping.y] || 0;
+        
+        // Only log if there's significant movement
+        if (bestMovement > 0.05) {
+            console.log(`🎯 Analog movement detected: X=axis${bestMapping.x}(${actualLeftX.toFixed(3)}), Y=axis${bestMapping.y}(${actualLeftY.toFixed(3)})`);
+        }
+        
+        // Store analog stick state separately
+        this.analogLeft = actualLeftX < -0.1;
+        this.analogRight = actualLeftX > 0.1;
+        this.analogDown = actualLeftY > 0.3;
+        
+        // Update movement keys based on combined input
+        this.updateMovementKeys();
+    }
+
+    handleDigitalButtons(gamepad, mapping, lastState, gamepadIndex) {
+        // Jump button (A button only)
+        const jumpButton = mapping.buttons.A;
+        this.keys[' '] = jumpButton !== undefined && gamepad.buttons[jumpButton] &&
+                        (gamepad.buttons[jumpButton].pressed || gamepad.buttons[jumpButton].value > 0.1);
+
+        // Spindash button (B button only)
+        const spindashButton = mapping.buttons.B;
+        this.buttonDown = spindashButton !== undefined && gamepad.buttons[spindashButton] &&
+                         (gamepad.buttons[spindashButton].pressed || gamepad.buttons[spindashButton].value > 0.1);
+
+        // Start button for restart
+        if (mapping.buttons.start !== undefined && gamepad.buttons[mapping.buttons.start] && 
+            gamepad.buttons[mapping.buttons.start].pressed && !lastState[mapping.buttons.start]) {
+            if (this.state === 'gameover' || this.state === 'levelcomplete' || this.state === 'gamecomplete') {
+                this.restartGame();
+            }
+        }
+
+        // Additional actions could be mapped to other buttons
+        // For example, X button could be for special moves, etc.
+    }
+
+    handleDpad(gamepad, mapping) {
+        // Check all buttons to see if any are pressed (for D-pad detection)
+        const buttons = gamepad.buttons;
+        const pressedButtons = [];
+        for (let i = 0; i < buttons.length; i++) {
+            if (buttons[i] && (buttons[i].pressed || (buttons[i].value && buttons[i].value > 0.1))) {
+                pressedButtons.push({ index: i, value: buttons[i].value || 1 });
+            }
+        }
+        
+        if (pressedButtons.length > 0) {
+            console.log(`🎮 PRESSED BUTTONS: ${pressedButtons.map(b => `B${b.index}(${b.value.toFixed(2)})`).join(', ')}`);
+        }
+        
+        // Try standard D-pad mapping first
+        this.dpadLeft = mapping.buttons.dpadLeft !== undefined && 
+                       gamepad.buttons[mapping.buttons.dpadLeft] && 
+                       gamepad.buttons[mapping.buttons.dpadLeft].pressed;
+        
+        this.dpadRight = mapping.buttons.dpadRight !== undefined && 
+                        gamepad.buttons[mapping.buttons.dpadRight] && 
+                        gamepad.buttons[mapping.buttons.dpadRight].pressed;
+        
+        this.dpadDown = mapping.buttons.dpadDown !== undefined && 
+                       gamepad.buttons[mapping.buttons.dpadDown] && 
+                       gamepad.buttons[mapping.buttons.dpadDown].pressed;
+        
+        this.dpadUp = mapping.buttons.dpadUp !== undefined && 
+                     gamepad.buttons[mapping.buttons.dpadUp] && 
+                     gamepad.buttons[mapping.buttons.dpadUp].pressed;
+        
+        // If standard D-pad doesn't work, try common alternative button indices
+        if (!this.dpadLeft && !this.dpadRight && !this.dpadDown && !this.dpadUp) {
+            // Try alternative D-pad mappings
+            const altMappings = [
+                { left: 14, right: 15, down: 13, up: 12 }, // Standard Xbox
+                { left: 6, right: 7, down: 5, up: 4 },     // Some controllers
+                { left: 10, right: 11, down: 9, up: 8 },   // Other controllers
+            ];
+            
+            for (const alt of altMappings) {
+                if (buttons[alt.left] && buttons[alt.left].pressed) this.dpadLeft = true;
+                if (buttons[alt.right] && buttons[alt.right].pressed) this.dpadRight = true;
+                if (buttons[alt.down] && buttons[alt.down].pressed) this.dpadDown = true;
+                if (buttons[alt.up] && buttons[alt.up].pressed) this.dpadUp = true;
+                
+                if (this.dpadLeft || this.dpadRight || this.dpadDown || this.dpadUp) {
+                    console.log(`🎯 Using alternative D-pad mapping: L=${alt.left}, R=${alt.right}, D=${alt.down}, U=${alt.up}`);
+                    break;
+                }
+            }
+        }
+        
+        // Only log D-pad input when there's actual movement (reduce spam)
+        if (this.dpadLeft || this.dpadRight || this.dpadDown || this.dpadUp) {
+            console.log(`🎮 D-pad - Left: ${this.dpadLeft}, Right: ${this.dpadRight}, Down: ${this.dpadDown}, Up: ${this.dpadUp}`);
+        }
+        
+        // Update movement keys based on combined input
+        this.updateMovementKeys();
+    }
+
+    updateMovementKeys() {
+        // Combine analog stick, D-pad, and button inputs
+        // Movement is active if EITHER analog stick OR D-pad OR button is activating it
+        this.keys['ArrowLeft'] = this.analogLeft || this.dpadLeft;
+        this.keys['ArrowRight'] = this.analogRight || this.dpadRight;
+        this.keys['ArrowDown'] = this.analogDown || this.dpadDown || this.buttonDown;
     }
 
     restartGame() {
@@ -665,20 +1218,8 @@ class Game {
         } else if (type === 'life') {
             this.player.addLife();
             console.log('❤️ Collected extra life! Lives:', this.player.lives);
-            // Play extra life sound
-            const extraLifeSound = this.assets.getAudio('extraLifeSound');
-            if (extraLifeSound) {
-                try {
-                    extraLifeSound.currentTime = 0;
-                    extraLifeSound.play().catch(e => {
-                        if (e.name !== 'AbortError') {
-                            console.warn('Extra life sound play error:', e);
-                        }
-                    });
-                } catch (e) {
-                    // Ignore play errors
-                }
-            }
+            // Play extra life sound (can play multiple times simultaneously)
+            this.assets.playSoundEffect('extraLifeSound');
         } else if (type === 'speed') {
             this.player.applySpeedBoost();
             console.log('⚡ Collected speed shoes! Running faster!');
@@ -757,12 +1298,31 @@ class Game {
     }
 
     drawTitle() {
-        // OLD: this.ctx.drawImage(this.titleImg, 0, 0, this.canvas.width, this.canvas.height);
-        // NEW:
-        this.ctx.drawImage(this.assets.getImage('titleScreen'), 0, 0, this.canvas.width, this.canvas.height);
+        // Use CSS background-image for animated GIF (same as background)
+        const titleImg = document.getElementById('titleScreenImg');
+        if (titleImg) {
+            const img = this.assets.getImage('titleScreen');
+            if (img) {
+                titleImg.style.backgroundImage = `url(${img.src})`;
+                titleImg.style.display = 'block';
+            }
+        }
+
+        // Draw text overlay on canvas
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(this.canvas.width / 2 - 130, this.canvas.height - 70, 260, 30);
         this.ctx.fillStyle = 'white';
         this.ctx.font = '24px Arial';
-        this.ctx.fillText('Press SPACE to Start', this.canvas.width / 2 - 100, this.canvas.height - 50);
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(this.getStartText(), this.canvas.width / 2, this.canvas.height - 50);
+        this.ctx.textAlign = 'left';
+    }
+
+    hideTitleScreen() {
+        const titleImg = document.getElementById('titleScreenImg');
+        if (titleImg) {
+            titleImg.style.display = 'none';
+        }
     }
 
     drawZone() {
@@ -861,10 +1421,49 @@ class Game {
     }
 
     loop() {
+        // Check for input device timeout (switch back to keyboard after 5 seconds of no input)
+        this.checkInputTimeout();
+
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Update gamepad input
+        this.updateGamepadInput();
 
         if (this.state === 'title') {
             this.drawTitle();
+            
+            // Check for controller input to start game
+            const gamepads = navigator.getGamepads();
+            for (let i = 0; i < gamepads.length; i++) {
+                const gamepad = gamepads[i];
+                if (!gamepad) continue;
+                
+                const controllerType = gamepad.controllerType || 'standard';
+                const mapping = this.controllerMappings[controllerType];
+                
+                // Check jump button (A) or start button to start game
+                const jumpButton = mapping.buttons.A;
+                const startButton = mapping.buttons.start;
+                
+                let startPressed = false;
+                // Check jump button (A)
+                if (jumpButton !== undefined && gamepad.buttons[jumpButton] && 
+                    (gamepad.buttons[jumpButton].pressed || gamepad.buttons[jumpButton].value > 0.1)) {
+                    startPressed = true;
+                }
+                // Check start button
+                if (!startPressed && startButton !== undefined && gamepad.buttons[startButton] && 
+                    gamepad.buttons[startButton].pressed) {
+                    startPressed = true;
+                }
+                
+                if (startPressed) {
+                    this.state = 'zone';
+                    setTimeout(() => this.state = 'game', CONFIG.game.zoneDisplayTimer);
+                    break; // Only start once
+                }
+            }
+            
             // Play title music only if we haven't switched to game music yet
             const titleMusic = this.assets.getAudio('titleMusic');
             if (!this.musicSwitching && this.currentMusic !== titleMusic) {
@@ -897,6 +1496,20 @@ class Game {
 
             // Hide all ring elements during title screen
             this.hideRingElements();
+            
+            // Show start button on title screen for mobile
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) startBtn.style.display = 'block';
+            
+            // Hide movement controls on title screen
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const jumpBtn = document.getElementById('jumpBtn');
+            const spindashBtn = document.getElementById('spindashBtn');
+            if (leftBtn) leftBtn.style.display = 'none';
+            if (rightBtn) rightBtn.style.display = 'none';
+            if (jumpBtn) jumpBtn.style.display = 'none';
+            if (spindashBtn) spindashBtn.style.display = 'none';
         } else if (this.state === 'zone') {
             this.drawZone();
             // Pause music during zone transition
@@ -905,12 +1518,37 @@ class Game {
 
             // Hide all ring elements during zone transition
             this.hideRingElements();
+            
+            // Hide all mobile controls during zone transition
+            const startBtn = document.getElementById('startBtn');
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const jumpBtn = document.getElementById('jumpBtn');
+            const spindashBtn = document.getElementById('spindashBtn');
+            if (startBtn) startBtn.style.display = 'none';
+            if (leftBtn) leftBtn.style.display = 'none';
+            if (rightBtn) rightBtn.style.display = 'none';
+            if (jumpBtn) jumpBtn.style.display = 'none';
+            if (spindashBtn) spindashBtn.style.display = 'none';
         } else if (this.state === 'game') {
             // Switch to game music on first entry to game state
             if (!this.hasSwitchedToGameMusic) {
                 this.hasSwitchedToGameMusic = true;
                 this.switchMusicForLevel(this.currentLevel);
             }
+
+            // Show movement controls during game for mobile, hide start button
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) startBtn.style.display = 'none';
+            
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+            const jumpBtn = document.getElementById('jumpBtn');
+            const spindashBtn = document.getElementById('spindashBtn');
+            if (leftBtn) leftBtn.style.display = 'block';
+            if (rightBtn) rightBtn.style.display = 'block';
+            if (jumpBtn) jumpBtn.style.display = 'block';
+            if (spindashBtn) spindashBtn.style.display = 'block';
 
             // If player is in death animation, update and draw only player
             if (this.player.isDeathAnimating) {
@@ -951,6 +1589,8 @@ class Game {
                     if (!ring.collected && ring.checkCollision(this.player)) {
                         ring.collect();
                         this.player.collectRing();
+                        // Play ring collection sound (can play multiple times simultaneously)
+                        this.assets.playSoundEffect('ringCollectSound');
                     }
                 }
                 // Update springs
@@ -1001,20 +1641,44 @@ class Game {
                             enemy.destroy();
                             this.score += 100; // Points for jumping on enemy
                             this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
+                            // Add vibration for destroying enemy
+                            this.vibrateController(0, 150, 0.3, 0.6);
+                            // Play enemy hit sound (can play multiple times simultaneously)
+                            this.assets.playSoundEffect('enemyHitSound');
                         } else if (isRolling) {
                             enemy.destroy();
                             this.score += 100; // Points for rolling into enemy
                             this.player.velocityY = CONFIG.player.jumpStrength * 0.5;
+                            // Add vibration for destroying enemy
+                            this.vibrateController(0, 150, 0.3, 0.6);
+                            // Play enemy hit sound (can play multiple times simultaneously)
+                            this.assets.playSoundEffect('enemyHitSound');
                         } else if (hasPowerInvincibility) {
                             enemy.destroy();
                             this.score += 100; // Points for destroying enemy while invincible
                             // Optional: add bounce effect when destroying enemy while invincible
                             this.player.velocityY = CONFIG.player.jumpStrength * 0.3;
+                            // Add vibration for destroying enemy
+                            this.vibrateController(0, 150, 0.3, 0.6);
+                            // Play enemy hit sound (can play multiple times simultaneously)
+                            this.assets.playSoundEffect('enemyHitSound');
                         } else {
                             this.player.takeDamage(this);
                         }
                     }
                 }
+
+                // Update power-ups
+                for (let i = this.powerUps.length - 1; i >= 0; i--) {
+                    const powerUp = this.powerUps[i];
+                    powerUp.update();
+
+                    // Remove power-ups that are broken and animation is complete
+                    if (powerUp.isBroken && powerUp.brokenTimer > 30) {
+                        this.powerUps.splice(i, 1);
+                    }
+                }
+
                 // Check if player reached boss area (Act 3)
                 if (this.currentLevel === 'Test Zone Act 3' && this.boss && !this.isBossFight && this.player.x >= 2900) {
                     this.startBossFight();
@@ -1042,7 +1706,7 @@ class Game {
                     const isRolling = this.player.isRolling;
                     if (isJumpingDown || isRolling) {
                         if (this.boss.checkCollision(this.player)) {
-                            this.boss.takeDamage();
+                            this.boss.takeDamage(this);
                             if (isJumpingDown) {
                                 this.player.velocityY = CONFIG.player.jumpStrength * 0.5; // Bounce off boss
                             } else {
@@ -1050,8 +1714,8 @@ class Game {
                             }
                         }
                     }
-                    // Check if boss is defeated
-                    if (!this.boss.isAlive) {
+                    // Check if boss is defeated (after explosion completes)
+                    if (this.boss.isFullyDefeated) {
                         // Calculate level score
                         const timeBonus = Math.max(0, 50000 - this.timer * 10);
                         const ringBonus = this.player.rings * 100;
