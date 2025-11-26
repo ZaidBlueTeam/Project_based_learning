@@ -228,7 +228,7 @@ export default function App() {
                 <Package className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1>Offline Store</h1>
+                <h1 className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Offline Store</h1>
                 <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Client-side inventory management</p>
               </div>
             </div>
