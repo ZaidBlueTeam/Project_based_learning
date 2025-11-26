@@ -3,7 +3,9 @@ import { ProductList } from './components/ProductList';
 import { ProductForm } from './components/ProductForm';
 import { SearchBar } from './components/SearchBar';
 import { StoreStats } from './components/StoreStats';
-import { Package } from 'lucide-react';
+import { Cart } from './components/Cart';
+import { useTheme } from './contexts/ThemeContext';
+import { Package, Moon, Sun } from 'lucide-react';
 
 export interface Product {
   id: string;
@@ -15,7 +17,13 @@ export interface Product {
   imageUrl?: string;
 }
 
+export interface CartItem {
+  productId: string;
+  quantity: number;
+}
+
 const STORAGE_KEY = 'offline_store_products';
+const CART_STORAGE_KEY = 'offline_store_cart';
 
 // Load products from localStorage
 const loadProducts = (): Product[] => {
@@ -37,8 +45,30 @@ const saveProducts = (products: Product[]) => {
   }
 };
 
+// Load cart from localStorage
+const loadCart = (): CartItem[] => {
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Error loading cart:', error);
+    return [];
+  }
+};
+
+// Save cart to localStorage
+const saveCart = (cart: CartItem[]) => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  } catch (error) {
+    console.error('Error saving cart:', error);
+  }
+};
+
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [products, setProducts] = useState<Product[]>(loadProducts);
+  const [cart, setCart] = useState<CartItem[]>(loadCart);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -48,6 +78,11 @@ export default function App() {
   useEffect(() => {
     saveProducts(products);
   }, [products]);
+
+  // Save to localStorage whenever cart changes
+  useEffect(() => {
+    saveCart(cart);
+  }, [cart]);
 
   // Get unique categories
   const categories = ['all', ...new Set(products.map(p => p.category))];
@@ -91,8 +126,55 @@ export default function App() {
     setEditingProduct(null);
   };
 
+  // Cart functions
+  const addToCart = (productId: string, quantity: number = 1) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.productId === productId);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.productId === productId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      } else {
+        return [...prevCart, { productId, quantity }];
+      }
+    });
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.productId !== productId));
+  };
+
+  const updateCartQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+    } else {
+      setCart(prevCart =>
+        prevCart.map(item =>
+          item.productId === productId ? { ...item, quantity } : item
+        )
+      );
+    }
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const getCartTotal = () => {
+    return cart.reduce((total, item) => {
+      const product = products.find(p => p.id === item.productId);
+      return total + (product ? product.price * item.quantity : 0);
+    }, 0);
+  };
+
+  const getCartItemCount = () => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -106,12 +188,23 @@ export default function App() {
                 <p className="text-gray-600">Client-side inventory management</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {showForm ? 'Cancel' : 'Add Product'}
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </button>
+              <button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {showForm ? 'Cancel' : 'Add Product'}
+              </button>
+              <button className="relative bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                Cart ({getCartItemCount()})
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -145,7 +238,20 @@ export default function App() {
           products={filteredProducts}
           onEdit={handleEditProduct}
           onDelete={handleDeleteProduct}
+          onAddToCart={addToCart}
         />
+
+        {/* Cart */}
+        <div className="mt-8">
+          <Cart
+            cart={cart}
+            products={products}
+            onUpdateQuantity={updateCartQuantity}
+            onRemove={removeFromCart}
+            onClear={clearCart}
+            total={getCartTotal()}
+          />
+        </div>
 
         {/* Empty State */}
         {filteredProducts.length === 0 && (

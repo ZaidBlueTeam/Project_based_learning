@@ -6,9 +6,10 @@ interface ProductListProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
+  onAddToCart: (productId: string, quantity?: number) => void;
 }
 
-export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDelete }) => {
+export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDelete, onAddToCart }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {products.map((product) => (
@@ -20,6 +21,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDe
           <div className="mt-2 space-x-2">
             <Button onClick={() => onEdit(product)} variant="outline">Edit</Button>
             <Button onClick={() => onDelete(product.id)} variant="destructive">Delete</Button>
+            <Button onClick={() => onAddToCart(product.id)} variant="default">Add to Cart</Button>
           </div>
         </div>
       ))}

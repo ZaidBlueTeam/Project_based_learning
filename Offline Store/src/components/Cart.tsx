@@ -1,0 +1,105 @@
+import React from 'react';
+import { CartItem, Product } from '../App';
+import { Button } from './ui/button';
+import { ShoppingCart, Trash2 } from 'lucide-react';
+
+interface CartProps {
+  cart: CartItem[];
+  products: Product[];
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemove: (productId: string) => void;
+  onClear: () => void;
+  total: number;
+}
+
+export const Cart: React.FC<CartProps> = ({
+  cart,
+  products,
+  onUpdateQuantity,
+  onRemove,
+  onClear,
+  total,
+}) => {
+  if (cart.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <ShoppingCart className="w-5 h-5" />
+          <h2 className="text-xl font-semibold">Shopping Cart</h2>
+        </div>
+        <p className="text-gray-500">Your cart is empty</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="w-5 h-5" />
+          <h2 className="text-xl font-semibold">Shopping Cart</h2>
+        </div>
+        <Button onClick={onClear} variant="outline" size="sm">
+          Clear Cart
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        {cart.map((item) => {
+          const product = products.find(p => p.id === item.productId);
+          if (!product) return null;
+
+          return (
+            <div key={item.productId} className="flex items-center gap-4 border-b pb-4">
+              <img
+                src={product.imageUrl || '/placeholder.jpg'}
+                alt={product.name}
+                className="w-16 h-16 object-cover rounded"
+              />
+              <div className="flex-1">
+                <h3 className="font-medium">{product.name}</h3>
+                <p className="text-sm text-gray-600">${product.price.toFixed(2)} each</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
+                  className="w-8 h-8 rounded border hover:bg-gray-100"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center">{item.quantity}</span>
+                <button
+                  onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
+                  className="w-8 h-8 rounded border hover:bg-gray-100"
+                >
+                  +
+                </button>
+              </div>
+              <div className="text-right">
+                <p className="font-medium">${(product.price * item.quantity).toFixed(2)}</p>
+                <Button
+                  onClick={() => onRemove(item.productId)}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-800"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-6 pt-4 border-t">
+        <div className="flex justify-between items-center text-lg font-semibold">
+          <span>Total:</span>
+          <span>${total.toFixed(2)}</span>
+        </div>
+        <Button className="w-full mt-4" size="lg">
+          Checkout
+        </Button>
+      </div>
+    </div>
+  );
+};

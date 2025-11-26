@@ -4,23 +4,28 @@ A React TypeScript offline store application for learning purposes. Built with V
 
 ## Features
 
-- Add, edit, and delete products
-- Search and filter products by category
-- Store data in localStorage
-- Responsive design with Tailwind CSS
-- UI components from shadcn/ui
+- **Product Management**: Add, edit, and delete products with full CRUD operations
+- **Shopping Cart**: Add items to cart, update quantities, remove items, and calculate totals
+- **Search & Filtering**: Search products by name/description and filter by category
+- **Data Persistence**: Products and cart data saved to localStorage
+- **Responsive Design**: Mobile-friendly layout with Tailwind CSS
+- **Dark Mode**: Theme switcher with light/dark mode support
+- **PWA Ready**: Installable as a web app with offline caching
+- **Statistics Dashboard**: View store metrics (total products, value, low stock)
 
 ## Project Structure
 
-- `src/App.tsx`: Main app component with product management
-- `src/components/`: Reusable components (ProductList, ProductForm, etc.)
+- `src/App.tsx`: Main app with product and cart management logic
+- `src/components/`: Reusable components (ProductList, ProductForm, SearchBar, StoreStats, Cart)
 - `src/components/ui/`: shadcn/ui components (Button, etc.)
+- `src/contexts/ThemeContext.tsx`: Theme management with React Context
 - `src/index.css`: Tailwind CSS imports
-- `src/main.tsx`: App entry point
+- `src/main.tsx`: App entry point with PWA service worker registration
+- `public/manifest.json`: PWA manifest for installable app
+- `public/sw.js`: Service worker for offline caching
 - `index.html`: HTML template
 - `vite.config.ts`: Vite configuration
 - `tsconfig.json`: TypeScript configuration
-- `tailwind.config.js`: Tailwind configuration
 
 ## Getting Started
 
@@ -34,12 +39,21 @@ A React TypeScript offline store application for learning purposes. Built with V
 - `npm run build`: Build for production
 - `npm run preview`: Preview production build
 
-## Learning Resources
+## PWA Features
+
+- **Offline Caching**: Core assets cached for offline access
+- **Installable**: Can be installed as a desktop/mobile app
+- **Service Worker**: Handles caching and offline requests
+
+## Learning Concepts Covered
 
 This project demonstrates:
-- React hooks (useState, useEffect)
-- TypeScript interfaces
-- Component composition
-- Local storage API
+- React hooks (useState, useEffect, useContext)
+- TypeScript interfaces and type safety
+- Component composition and props
+- State management across components
+- Local storage API for data persistence
+- React Context for theme management
+- PWA concepts (service workers, manifest)
 - Responsive design with Tailwind CSS
 - Modern build tools (Vite)
