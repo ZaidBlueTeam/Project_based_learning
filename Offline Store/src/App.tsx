@@ -29,11 +29,55 @@ const CART_STORAGE_KEY = 'offline_store_cart';
 const loadProducts = (): Product[] => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed.length > 0) {
+        return parsed;
+      }
+    }
   } catch (error) {
     console.error('Error loading products:', error);
-    return [];
   }
+
+  // Return sample products if no stored data or empty array
+  return [
+    {
+      id: '1',
+      name: 'Wireless Headphones',
+      category: 'Electronics',
+      price: 99.99,
+      stock: 15,
+      description: 'High-quality wireless headphones with noise cancellation',
+      imageUrl: 'https://via.placeholder.com/150'
+    },
+    {
+      id: '2',
+      name: 'Coffee Maker',
+      category: 'Appliances',
+      price: 79.99,
+      stock: 8,
+      description: 'Programmable coffee maker with thermal carafe',
+      imageUrl: 'https://via.placeholder.com/150'
+    },
+    {
+      id: '3',
+      name: 'Yoga Mat',
+      category: 'Sports',
+      price: 29.99,
+      stock: 25,
+      description: 'Non-slip yoga mat, 6mm thick',
+      imageUrl: 'https://via.placeholder.com/150'
+    },
+    {
+      id: '4',
+      name: 'Notebook',
+      category: 'Stationery',
+      price: 12.99,
+      stock: 50,
+      description: 'A5 lined notebook, 200 pages',
+      imageUrl: 'https://via.placeholder.com/150'
+    }
+  ];
 };
 
 // Save products to localStorage
@@ -226,9 +270,9 @@ export default function App() {
 
         {/* Search and Filter */}
         <SearchBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedCategory={selectedCategory}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          category={selectedCategory}
           onCategoryChange={setSelectedCategory}
           categories={categories}
         />
@@ -258,7 +302,7 @@ export default function App() {
           <div className="text-center py-12">
             <Package className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-400'}`} />
             <h3 className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>No products found</h3>
-            <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-6>
+            <p className={`${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-6`}>
               {products.length === 0
                 ? 'Get started by adding your first product'
                 : 'Try adjusting your search or filters'}
