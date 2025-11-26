@@ -174,9 +174,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-50 text-black'}`}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className={`shadow-sm border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -185,13 +185,13 @@ export default function App() {
               </div>
               <div>
                 <h1>Offline Store</h1>
-                <p className="text-gray-600">Client-side inventory management</p>
+                <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>Client-side inventory management</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               <button
                 onClick={toggleTheme}
-                className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
               >
                 {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
@@ -256,9 +256,9 @@ export default function App() {
         {/* Empty State */}
         {filteredProducts.length === 0 && (
           <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-600 mb-6">
+            <Package className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-400'}`} />
+            <h3 className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>No products found</h3>
+            <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'} mb-6>
               {products.length === 0
                 ? 'Get started by adding your first product'
                 : 'Try adjusting your search or filters'}

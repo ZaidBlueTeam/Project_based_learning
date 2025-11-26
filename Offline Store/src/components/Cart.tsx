@@ -2,6 +2,7 @@ import React from 'react';
 import { CartItem, Product } from '../App';
 import { Button } from './ui/button';
 import { ShoppingCart, Trash2 } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface CartProps {
   cart: CartItem[];
@@ -20,20 +21,21 @@ export const Cart: React.FC<CartProps> = ({
   onClear,
   total,
 }) => {
+  const { theme } = useTheme();
   if (cart.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className={`rounded-lg shadow p-6 border ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200'}`}>
         <div className="flex items-center gap-2 mb-4">
           <ShoppingCart className="w-5 h-5" />
           <h2 className="text-xl font-semibold">Shopping Cart</h2>
         </div>
-        <p className="text-gray-500">Your cart is empty</p>
+        <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}>Your cart is empty</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className={`rounded-lg shadow p-6 border ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200'}`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <ShoppingCart className="w-5 h-5" />
@@ -50,7 +52,7 @@ export const Cart: React.FC<CartProps> = ({
           if (!product) return null;
 
           return (
-            <div key={item.productId} className="flex items-center gap-4 border-b pb-4">
+            <div key={item.productId} className={`flex items-center gap-4 border-b pb-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
               <img
                 src={product.imageUrl || '/placeholder.jpg'}
                 alt={product.name}
@@ -58,19 +60,19 @@ export const Cart: React.FC<CartProps> = ({
               />
               <div className="flex-1">
                 <h3 className="font-medium">{product.name}</h3>
-                <p className="text-sm text-gray-600">${product.price.toFixed(2)} each</p>
+                <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>${product.price.toFixed(2)} each</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onUpdateQuantity(item.productId, item.quantity - 1)}
-                  className="w-8 h-8 rounded border hover:bg-gray-100"
+                  className={`w-8 h-8 rounded border hover:bg-gray-100 ${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300'}`}
                 >
                   -
                 </button>
                 <span className="w-8 text-center">{item.quantity}</span>
                 <button
                   onClick={() => onUpdateQuantity(item.productId, item.quantity + 1)}
-                  className="w-8 h-8 rounded border hover:bg-gray-100"
+                  className={`w-8 h-8 rounded border hover:bg-gray-100 ${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300'}`}
                 >
                   +
                 </button>
@@ -91,7 +93,7 @@ export const Cart: React.FC<CartProps> = ({
         })}
       </div>
 
-      <div className="mt-6 pt-4 border-t">
+      <div className={`mt-6 pt-4 border-t ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
         <div className="flex justify-between items-center text-lg font-semibold">
           <span>Total:</span>
           <span>${total.toFixed(2)}</span>
