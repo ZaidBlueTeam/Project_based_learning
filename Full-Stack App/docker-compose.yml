@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - POCKETBASE_URL=http://pb:8090
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+
+  pb:
+    image: ghcr.io/muchobien/pocketbase:latest
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./pb/pb_data:/pb/pb_data
