@@ -18,14 +18,16 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import io from 'socket.io-client'
 
 export default {
   name: 'Posts',
   setup() {
     const posts = ref([])
     const newPost = ref({ title: '', content: '' })
+    const socket = io('http://localhost:3000')
 
     const fetchPosts = async () => {
       try {
@@ -38,9 +40,8 @@ export default {
 
     const createPost = async () => {
       try {
-        await axios.post('http://localhost:3000/posts', newPost.value)
+        socket.emit('createPost', newPost.value)
         newPost.value = { title: '', content: '' }
-        fetchPosts()
       } catch (err) {
         console.error(err)
       }
@@ -48,23 +49,37 @@ export default {
 
     const deletePost = async (id) => {
       try {
-        await axios.delete(`http://localhost:3000/posts/${id}`)
-        fetchPosts()
+        socket.emit('deletePost', { id })
       } catch (err) {
         console.error(err)
       }
     }
 
     const editPost = (post) => {
-      // Simple edit, for demo
       const newTitle = prompt('New title', post.title)
       const newContent = prompt('New content', post.content)
       if (newTitle && newContent) {
-        axios.put(`http://localhost:3000/posts/${post.id}`, { title: newTitle, content: newContent }).then(fetchPosts)
+        socket.emit('updatePost', { id: post.id, updateData: { title: newTitle, content: newContent } })
       }
     }
 
-    onMounted(fetchPosts)
+    onMounted(() => {
+      fetchPosts()
+      socket.on('postCreated', (post) => {
+        posts.value.push(post)
+      })
+      socket.on('postUpdated', (updatedPost) => {
+        const index = posts.value.findIndex(p => p.id === updatedPost.id)
+        if (index !== -1) posts.value[index] = updatedPost
+      })
+      socket.on('postDeleted', (data) => {
+        posts.value = posts.value.filter(p => p.id !== data.id)
+      })
+    })
+
+    onUnmounted(() => {
+      socket.disconnect()
+    })
 
     return { posts, newPost, createPost, deletePost, editPost }
   }
